@@ -110,7 +110,7 @@ syscall(struct trapframe *tf)
 		break;
 
 	    /* Add stuff here */
-#if OPT_SYSCALLS
+#if OPT_FILESC
 	    case SYS_READ:
 		retval = sys_read((int)tf->tf_a0,
 			       	  (userptr_t)tf->tf_a1,
