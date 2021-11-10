@@ -1,8 +1,10 @@
 #include <types.h>  // types (userptr_t, size_t, ...)
 #include <synch.h>  // synchronization (lock)
 
-#include "opt-filesc.h"
+#ifndef _FILE_SYSCALLS_H_
+#define _FILE_SYSCALLS_H_
 
+#include "opt-filesc.h"
 #if OPT_FILESC
 
 struct fhandle {
@@ -13,7 +15,10 @@ struct fhandle {
 	struct lock *lock;
 };
 
+int sys_open(userptr_t filename, int flags);
 int sys_read(int fd, userptr_t buf_ptr, size_t size);
+
+#endif
 
 #endif
 
