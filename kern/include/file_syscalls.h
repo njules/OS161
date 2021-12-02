@@ -15,10 +15,10 @@ struct fhandle {
 	struct lock *lock;
 };
 
-int sys_open(userptr_t filename, int flags);
-ssize_t sys_read(int fd, userptr_t buf, size_t size);
-off_t sys_lseek(int fd, off_t pos, int whence);
-int sys_getcwd(userptr_t buf);
+int sys_open(userptr_t filename, int flags, int *retval);
+int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval);
+int sys_lseek(int fd, off_t pos, int whence, off_t *retval);
+int sys_getcwd(userptr_t buf, int *retval);
 
 #endif
 

@@ -112,18 +112,18 @@ syscall(struct trapframe *tf)
 	    /* Add stuff here */
 #if OPT_FILESC
 	    case SYS_OPEN:
-		retval = sys_open((userptr_t)tf->tf_a0,
-				  (int)tf->tf_a1);
-		if (retval<0) err = retval;
-		else err = 0;
+		err = sys_open((userptr_t)tf->tf_a0,
+			       (int)tf->tf_a1,
+			       &retval);
+		if (err) retval = -1;
 		break;
 
 	    case SYS_READ:
-		retval = sys_read((int)tf->tf_a0,
-			       	  (userptr_t)tf->tf_a1,
-			       	  (size_t)tf->tf_a2);
-		if (retval<0) err = retval;
-		else err = 0;
+		err = sys_read((int)tf->tf_a0,
+			       (userptr_t)tf->tf_a1,
+			       (size_t)tf->tf_a2,
+			       &retval);
+		if (err) retval = -1;
 		break;
 
 	    case SYS_LSEEK:
@@ -135,11 +135,14 @@ syscall(struct trapframe *tf)
 			break;
 		}
 
-		off_t retval64 = sys_lseek((int)tf->tf_a0),offset,whence;
-		if (retval64<0) {
-			err = retval64;
+		off_t retval64;
+		err = sys_lseek((int)tf->tf_a0,
+				offset,
+				whence,
+				&retval64);
+		if (err) {
+			retval = -1;
 		else {
-			err = 0;
 			retval = retval64 >> 32;  // store 64 bit return value in v0:v1
 			tf->tf_v1 = retval64;
 		}

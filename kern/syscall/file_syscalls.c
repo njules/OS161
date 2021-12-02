@@ -15,7 +15,7 @@
 #define MAX_PATH_LEN 255  // maximum length of path name string
 
 
-int sys_open(userptr_t filename, int flags) {
+int sys_open(userptr_t filename, int flags, int *retval) {
 
 	// check flags are compatible with access type (r, w, rw)
 	if (flags & O_RDONLY) {
@@ -74,11 +74,12 @@ int sys_open(userptr_t filename, int flags) {
 	// add file handle to fdtable
 	curproc->p_fdtable[fd] = open_file;
 
-	return fd;
+	*retval = fd;
+	return 0;
 }
 
 
-ssize_t sys_read(int fd, userptr_t buf, size_t size) {
+int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval) {
 
 	if (fd < 0 || fd >= OPEN_MAX) {  // if fd out of bounds of fdtable
 		return EBADF;
@@ -121,11 +122,12 @@ ssize_t sys_read(int fd, userptr_t buf, size_t size) {
 
 	lock_release(open_file->lock);  // release lock
 
-	return size - u.uio_resid;  // return number of bytes read
+	*retval = size - u.uio_resid;  // return number of bytes read on success
+	return 0;
 }
 
 
-off_t sys_lseek(int fd, off_t pos, int whence) {
+int sys_lseek(int fd, off_t pos, int whence, off_t *retval) {
 
 	if (fd < 0 || fd >= OPEN_MAX) {  // if fd out of bounds of fdtable
 		return EBADF;
@@ -171,6 +173,8 @@ off_t sys_lseek(int fd, off_t pos, int whence) {
 	open_file->offset = offset;  // update offset in file handle
 
 	lock_release(open_file->lock);  // release lock
-	return offset;
+
+	*retval = offset;
+	return 0;
 }
 
