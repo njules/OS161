@@ -61,18 +61,34 @@ int sys_open(userptr_t filename, int flags, int *retval) {
 		return err;
 	}
 
+	// compute file offset (EOF if O_APPEND is specified, 0 else)
+	off_t offset = 0;
+	if (flags | O_APPEND) {
+		struct stat *file_stat=NULL;
+		err = VOP_STAT(vn, file_stat);
+		if (err) {
+			return err;
+		}
+		offset = file_stat->st_size;
+	}
+
+
 	// initialize fhandle struct
 	struct fhandle *open_file;
 	open_file = kmalloc(sizeof(struct fhandle));
 
 	open_file->vn = vn;
-	open_file->offset = 0;
+	open_file->offset = offset;
 	open_file->flags = flags;
 	open_file->ref_count = 1;
 	open_file->lock = lock_create(path);
 
+	lock_acquire(open_file->lock);  // synchronize access to file table during open
+
 	// add file handle to fdtable
 	curproc->p_fdtable[fd] = open_file;
+
+	lock_release(open_file->lock);  // release lock
 
 	*retval = fd;
 	return 0;
@@ -143,6 +159,7 @@ int sys_lseek(int fd, off_t pos, int whence, off_t *retval) {
 	lock_acquire(open_file->lock);  // synchronize access to file handle during seek
 
 	if (!VOP_ISSEEKABLE(open_file->vn)) {  // check if file allows for seeking
+		lock_release(open_file->lock);  // release lock
 		return ESPIPE;
 	}
 
@@ -157,7 +174,11 @@ int sys_lseek(int fd, off_t pos, int whence, off_t *retval) {
 		break;
 	    case SEEK_END: ;  // empty statement for label
 		struct stat *file_stat=NULL;
-		VOP_STAT(open_file->vn, file_stat);  // TODO: check err
+		int err = VOP_STAT(open_file->vn, file_stat);
+		if (err) {
+			lock_release(open_file->lock);  // release lock
+			return err;
+		}
 		offset = file_stat->st_size + pos;
 		break;
 	    default:
