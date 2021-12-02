@@ -9,6 +9,8 @@
 #include <vnode.h>  // for moving data (VOP_OPEN, VOP_READ, ..)
 #include <vfs.h>  // for vfs functions (vfs_open, vfs_close)
 #include <copyinout.h>  // for moving data (copyinstr)
+#include <kern/seek.h>  // for seek constants (SEEK_SET, SEEK_CUR, ..)
+#include <kern/stat.h>  // for getting file info via VOP_STAT (stat)
 
 #define MAX_PATH_LEN 255  // maximum length of path name string
 
@@ -76,7 +78,7 @@ int sys_open(userptr_t filename, int flags) {
 }
 
 
-int sys_read(int fd, userptr_t buf_ptr, size_t size) {
+ssize_t sys_read(int fd, userptr_t buf, size_t size) {
 
 	if (fd < 0 || fd >= OPEN_MAX) {  // if fd out of bounds of fdtable
 		return EBADF;
@@ -99,7 +101,7 @@ int sys_read(int fd, userptr_t buf_ptr, size_t size) {
 	struct iovec iov;
 	struct uio u;
 
-	iov.iov_ubase = buf_ptr;
+	iov.iov_ubase = buf;
 	iov.iov_len = size;
 	u.uio_iov = &iov;
 	u.uio_iovcnt = 1;
@@ -120,5 +122,55 @@ int sys_read(int fd, userptr_t buf_ptr, size_t size) {
 	lock_release(open_file->lock);  // release lock
 
 	return size - u.uio_resid;  // return number of bytes read
+}
+
+
+off_t sys_lseek(int fd, off_t pos, int whence) {
+
+	if (fd < 0 || fd >= OPEN_MAX) {  // if fd out of bounds of fdtable
+		return EBADF;
+	}
+
+	struct fhandle *open_file;
+	open_file = curproc->p_fdtable[fd];  // get file handle from file table
+
+	if (open_file == NULL) {
+		return EBADF;
+	}
+
+	lock_acquire(open_file->lock);  // synchronize access to file handle during seek
+
+	if (!VOP_ISSEEKABLE(open_file->vn)) {  // check if file allows for seeking
+		return ESPIPE;
+	}
+
+	off_t offset = open_file->offset;
+
+	switch(whence) {
+	    case SEEK_SET:
+		offset = pos;
+		break;
+	    case SEEK_CUR:
+		offset = offset + pos;
+		break;
+	    case SEEK_END: ;  // empty statement for label
+		struct stat *file_stat=NULL;
+		VOP_STAT(open_file->vn, file_stat);  // TODO: check err
+		offset = file_stat->st_size + pos;
+		break;
+	    default:
+		lock_release(open_file->lock);  // release lock
+		return EINVAL;
+	}
+
+	if (offset < 0) {
+		lock_release(open_file->lock);  // release lock
+		return EINVAL;
+	}
+
+	open_file->offset = offset;  // update offset in file handle
+
+	lock_release(open_file->lock);  // release lock
+	return offset;
 }
 

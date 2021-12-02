@@ -16,7 +16,9 @@ struct fhandle {
 };
 
 int sys_open(userptr_t filename, int flags);
-int sys_read(int fd, userptr_t buf_ptr, size_t size);
+ssize_t sys_read(int fd, userptr_t buf, size_t size);
+off_t sys_lseek(int fd, off_t pos, int whence);
+int sys_getcwd(userptr_t buf);
 
 #endif
 
