@@ -9,11 +9,13 @@
 #include <vnode.h>  // for moving data (VOP_OPEN, VOP_READ, ..)
 #include <vfs.h>  // for vfs functions (vfs_open, vfs_close)
 #include <copyinout.h>  // for moving data (copyinstr)
+#include <kern/seek.h>  // for seek constants (SEEK_SET, SEEK_CUR, ..)
+#include <kern/stat.h>  // for getting file info via VOP_STAT (stat)
 
 #define MAX_PATH_LEN 255  // maximum length of path name string
 
 
-int sys_open(userptr_t filename, int flags) {
+int sys_open(userptr_t filename, int flags, int *retval) {
 
 	// check flags are compatible with access type (r, w, rw)
 	if (flags & O_RDONLY) {
@@ -59,24 +61,41 @@ int sys_open(userptr_t filename, int flags) {
 		return err;
 	}
 
+	// compute file offset (EOF if O_APPEND is specified, 0 else)
+	off_t offset = 0;
+	if (flags | O_APPEND) {
+		struct stat *file_stat=NULL;
+		err = VOP_STAT(vn, file_stat);
+		if (err) {
+			return err;
+		}
+		offset = file_stat->st_size;
+	}
+
+
 	// initialize fhandle struct
 	struct fhandle *open_file;
 	open_file = kmalloc(sizeof(struct fhandle));
 
 	open_file->vn = vn;
-	open_file->offset = 0;
+	open_file->offset = offset;
 	open_file->flags = flags;
 	open_file->ref_count = 1;
 	open_file->lock = lock_create(path);
 
+	lock_acquire(open_file->lock);  // synchronize access to file table during open
+
 	// add file handle to fdtable
 	curproc->p_fdtable[fd] = open_file;
 
-	return fd;
+	lock_release(open_file->lock);  // release lock
+
+	*retval = fd;
+	return 0;
 }
 
 
-int sys_read(int fd, userptr_t buf_ptr, size_t size) {
+int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval) {
 
 	if (fd < 0 || fd >= OPEN_MAX) {  // if fd out of bounds of fdtable
 		return EBADF;
@@ -99,7 +118,7 @@ int sys_read(int fd, userptr_t buf_ptr, size_t size) {
 	struct iovec iov;
 	struct uio u;
 
-	iov.iov_ubase = buf_ptr;
+	iov.iov_ubase = buf;
 	iov.iov_len = size;
 	u.uio_iov = &iov;
 	u.uio_iovcnt = 1;
@@ -119,6 +138,64 @@ int sys_read(int fd, userptr_t buf_ptr, size_t size) {
 
 	lock_release(open_file->lock);  // release lock
 
-	return size - u.uio_resid;  // return number of bytes read
+	*retval = size - u.uio_resid;  // return number of bytes read on success
+	return 0;
+}
+
+
+int sys_lseek(int fd, off_t pos, int whence, off_t *retval) {
+
+	if (fd < 0 || fd >= OPEN_MAX) {  // if fd out of bounds of fdtable
+		return EBADF;
+	}
+
+	struct fhandle *open_file;
+	open_file = curproc->p_fdtable[fd];  // get file handle from file table
+
+	if (open_file == NULL) {
+		return EBADF;
+	}
+
+	lock_acquire(open_file->lock);  // synchronize access to file handle during seek
+
+	if (!VOP_ISSEEKABLE(open_file->vn)) {  // check if file allows for seeking
+		lock_release(open_file->lock);  // release lock
+		return ESPIPE;
+	}
+
+	off_t offset = open_file->offset;
+
+	switch(whence) {
+	    case SEEK_SET:
+		offset = pos;
+		break;
+	    case SEEK_CUR:
+		offset = offset + pos;
+		break;
+	    case SEEK_END: ;  // empty statement for label
+		struct stat *file_stat=NULL;
+		int err = VOP_STAT(open_file->vn, file_stat);
+		if (err) {
+			lock_release(open_file->lock);  // release lock
+			return err;
+		}
+		offset = file_stat->st_size + pos;
+		break;
+	    default:
+		lock_release(open_file->lock);  // release lock
+		return EINVAL;
+	}
+
+	if (offset < 0) {
+		lock_release(open_file->lock);  // release lock
+		return EINVAL;
+	}
+
+	open_file->offset = offset;  // update offset in file handle
+
+	lock_release(open_file->lock);  // release lock
+
+	*retval = offset;
+	return 0;
 }
 
