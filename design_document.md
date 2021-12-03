@@ -56,7 +56,7 @@ struct fhandle {
 
 Preexisting method to dispatch syscalls.
 
-Added support for `SYS_OPEN, SYS_READ, SYS_LSEEK`.
+Added support for `SYS_OPEN, SYS_READ, SYS_LSEEK, SYS___GETCWD`.
 
 ```
 void syscall(struct trapframe *tf) {}
@@ -92,15 +92,26 @@ lseek syscall handler.
 int sys_lseek(int fd, off_t pos, int whence, off_t *retval);
 ```
 
+## sys___getcwd
+
+`kern/syscall/file_syscalls.c`
+
+__getcwd syscall handler.
+
+```
+int sys___getcwd(userptr_t buf, size_t buflen, int *retval);
+```
+
 
 # TODOs
-- add stdin, stdout and stderr to fdtable
+- add stdin, stdout and stderr to fdtable (idea: initiate in first process, pass down to children via fork)
+- cwd is per thread but fdtable is per process, fix inconsistency!
+- check if synchronization is done properly for file syscalls
 - syscalls
   - write (Pablo)
   - close (Pablo)
   - dup2 (Pablo)
   - chdir (Pablo)
-  - getcwd (Julian)
   - getpid
   - fork
   - execv
@@ -114,7 +125,7 @@ int sys_lseek(int fd, off_t pos, int whence, off_t *retval);
   - lseek (Pablo)
   - dup2 (Julian)
   - chdir (Julian)
-  - getcwd (Pablo)
+  - __getcwd (Pablo)
   - getpid
   - fork
   - execv
