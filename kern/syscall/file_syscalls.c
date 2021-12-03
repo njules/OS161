@@ -12,8 +12,6 @@
 #include <kern/seek.h>  // for seek constants (SEEK_SET, SEEK_CUR, ..)
 #include <kern/stat.h>  // for getting file info via VOP_STAT (stat)
 
-#define MAX_PATH_LEN 255  // maximum length of path name string
-
 
 int sys_open(userptr_t filename, int flags, int *retval) {
 
@@ -47,9 +45,9 @@ int sys_open(userptr_t filename, int flags, int *retval) {
 	}
 
 	// copy filename from userpointer into kernel buffer
-	char path[MAX_PATH_LEN];
+	char path[PATH_MAX+1];
 	size_t pathlen;
-	int err = copyinstr(filename, path, MAX_PATH_LEN, &pathlen);
+	int err = copyinstr(filename, path, sizeof(path)-1, &pathlen);
 	if (err) {
 		return err;
 	}
@@ -196,6 +194,31 @@ int sys_lseek(int fd, off_t pos, int whence, off_t *retval) {
 	lock_release(open_file->lock);  // release lock
 
 	*retval = offset;
+	return 0;
+}
+
+int sys___getcwd(userptr_t buf, size_t buflen, int *retval) {
+
+	// set up iovec and uio structs to copy cwd 
+	struct iovec iov;
+	struct uio u;
+
+	iov.iov_ubase = buf;
+	iov.iov_len = buflen;
+	u.uio_iov = &iov;
+	u.uio_iovcnt = 1;
+	u.uio_resid = buflen;
+	u.uio_offset = 0;
+	u.uio_segflg = UIO_USERSPACE;
+	u.uio_rw = UIO_READ;
+	u.uio_space = curproc->p_addrspace;
+
+	int err = vfs_getcwd(&u);
+	if (err) {
+		return err;
+	}
+	
+	*retval = 0;  // on success return 0
 	return 0;
 }
 
