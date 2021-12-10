@@ -59,7 +59,7 @@ Preexisting method to dispatch syscalls.
 Added support for `SYS_OPEN, SYS_READ, SYS_LSEEK, SYS___GETCWD`.
 
 ```
-void syscall(struct trapframe *tf) {}
+void syscall(struct trapframe *tf);
 ```
 
 ## sys_open
@@ -100,6 +100,17 @@ __getcwd syscall handler.
 
 ```
 int sys___getcwd(userptr_t buf, size_t buflen, int *retval);
+```
+
+
+# Options
+
+## filesc
+
+Enable file syscalls.
+
+```
+optfile	   filesc	syscall/file_syscalls.c
 ```
 
 
