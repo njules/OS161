@@ -56,49 +56,90 @@ struct fhandle {
 
 Preexisting method to dispatch syscalls.
 
-Added support for `SYS_READ`.
+Added support for `SYS_OPEN, SYS_READ, SYS_LSEEK, SYS___GETCWD`.
 
 ```
-void syscall(struct trapframe *tf) {}
+void syscall(struct trapframe *tf);
+```
+
+## sys_open
+
+`kern/syscall/file_syscalls.c`
+
+open syscall handler.
+
+```
+int sys_open(userptr_t filename, int flags, int *retval);
 ```
 
 ## sys_read
 
 `kern/syscall/file_syscalls.c`
 
-Read syscall handler.
+read syscall handler.
 
 ```
-int sys_read(int fd, userptr_t buf_ptr, size_t size) {}
+int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval);
+```
+
+## sys_lseek
+
+`kern/syscall/file_syscalls.c`
+
+lseek syscall handler.
+
+```
+int sys_lseek(int fd, off_t pos, int whence, off_t *retval);
+```
+
+## sys___getcwd
+
+`kern/syscall/file_syscalls.c`
+
+__getcwd syscall handler.
+
+```
+int sys___getcwd(userptr_t buf, size_t buflen, int *retval);
+```
+
+
+# Options
+
+## filesc
+
+Enable file syscalls.
+
+```
+optfile	   filesc	syscall/file_syscalls.c
 ```
 
 
 # TODOs
-- add stdin, stdout and stderr to fdtable
+- add stdin, stdout and stderr to fdtable (idea: initiate in first process, pass down to children via fork)
+- cwd is per thread but fdtable is per process, fix inconsistency!
+- check if synchronization is done properly for file syscalls
 - syscalls
-  - open
-  - write
-  - close
-  - lseek
-  - dup2
-  - chdir
-  - getcwd
+  - write (Pablo)
+  - close (Pablo)
+  - dup2 (Pablo)
+  - chdir (Pablo)
   - getpid
   - fork
   - execv
   - waitpid
   - exit
 - tests
-  - open
-  - read
-  - write
-  - close
-  - lseek
-  - dup2
-  - chdir
-  - getcwd
+  - open (Pablo)
+  - read (Pablo)
+  - write (Julian)
+  - close (Julian)
+  - lseek (Pablo)
+  - dup2 (Julian)
+  - chdir (Julian)
+  - __getcwd (Pablo)
   - getpid
   - fork
   - execv
   - waitpid
+  - exit
   - exit
