@@ -1,5 +1,5 @@
-#include <types.h>  // types (userptr_t, size_t, ...)
-#include <synch.h>  // synchronization (lock)
+#include <types.h> // types (userptr_t, size_t, ...)
+#include <synch.h> // synchronization (lock)
 
 #ifndef _FILE_SYSCALLS_H_
 #define _FILE_SYSCALLS_H_
@@ -7,7 +7,8 @@
 #include "opt-filesc.h"
 #if OPT_FILESC
 
-struct fhandle {
+struct fhandle
+{
 	struct vnode *vn;
 	off_t offset;
 	int flags;
@@ -22,5 +23,6 @@ int sys___getcwd(userptr_t buf, size_t buflen, int *retval);
 
 #endif
 
-#endif
+int sys_write(int fd, userptr_t buf_ptr, size_t size);
 
+#endif
