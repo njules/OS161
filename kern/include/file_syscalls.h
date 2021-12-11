@@ -1,11 +1,12 @@
-#include <types.h>  // types (userptr_t, size_t, ...)
-#include <synch.h>  // synchronization (lock)
+#include <types.h> // types (userptr_t, size_t, ...)
+#include <synch.h> // synchronization (lock)
 
 #include "opt-filesc.h"
 
 #if OPT_FILESC
 
-struct fhandle {
+struct fhandle
+{
 	struct vnode *vn;
 	off_t offset;
 	int flags;
@@ -15,5 +16,6 @@ struct fhandle {
 
 int sys_read(int fd, userptr_t buf_ptr, size_t size);
 
-#endif
+int sys_write(int fd, userptr_t buf_ptr, size_t size);
 
+#endif

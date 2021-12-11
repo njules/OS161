@@ -36,7 +36,6 @@
 #include <current.h>
 #include <syscall.h>
 
-
 /*
  * System call dispatcher.
  *
@@ -75,8 +74,7 @@
  * stack, starting at sp+16 to skip over the slots for the
  * registerized values, with copyin().
  */
-void
-syscall(struct trapframe *tf)
+void syscall(struct trapframe *tf)
 {
 	int callno;
 	int32_t retval;
@@ -99,47 +97,60 @@ syscall(struct trapframe *tf)
 
 	retval = 0;
 
-	switch (callno) {
-	    case SYS_reboot:
+	switch (callno)
+	{
+	case SYS_reboot:
 		err = sys_reboot(tf->tf_a0);
 		break;
 
-	    case SYS___time:
+	case SYS___time:
 		err = sys___time((userptr_t)tf->tf_a0,
-				 (userptr_t)tf->tf_a1);
+						 (userptr_t)tf->tf_a1);
 		break;
 
-	    /* Add stuff here */
+		/* Add stuff here */
 #if OPT_FILESC
-	    case SYS_READ:
+	case SYS_READ:
 		retval = sys_read((int)tf->tf_a0,
-			       	  (userptr_t)tf->tf_a1,
-			       	  (size_t)tf->tf_a2);
-		if (retval<0) err = retval;
-		else err = 0;
+						  (userptr_t)tf->tf_a1,
+						  (size_t)tf->tf_a2);
+		if (retval < 0)
+			err = retval;
+		else
+			err = 0;
+		break;
+	case SYS_WRITE:
+		retval = sys_write((int)tf->tf_a0,
+						   (userptr_t)tf->tf_a1,
+						   (size_t)tf->tf_a2); /* Keep first, second and third arguments into register associated with trapframe of syscall */
+		if (retval < 0)
+			err = retval;
+		else
+			err = 0;
 		break;
 #endif
 
-	    default:
+	default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;
 		break;
 	}
 
-
-	if (err) {
+	if (err)
+	{
 		/*
 		 * Return the error code. This gets converted at
 		 * userlevel to a return value of -1 and the error
 		 * code in errno.
 		 */
 		tf->tf_v0 = err;
-		tf->tf_a3 = 1;      /* signal an error */
+		tf->tf_a3 = 1; /* signal an error */
 	}
-	else {
+	else
+	{
 		/* Success. */
 		tf->tf_v0 = retval;
-		tf->tf_a3 = 0;      /* signal no error */
+		tf->tf_a3 = 0; /* signal no error */
 	}
 
 	/*
@@ -163,8 +174,7 @@ syscall(struct trapframe *tf)
  *
  * Thus, you can trash it and do things another way if you prefer.
  */
-void
-enter_forked_process(struct trapframe *tf)
+void enter_forked_process(struct trapframe *tf)
 {
 	(void)tf;
 }
