@@ -155,6 +155,13 @@ syscall(struct trapframe *tf)
 		if (err) retval = -1;
 		break;
 #endif
+#if OPT_PROCSC
+	    case SYS_EXECV:
+		err = sys_execv((userptr_t)tf->tf_a0,
+				(userptr_t)tf->tf_a1);
+		if (err) retval = -1;
+		break;
+#endif
 
 	    default:
 		kprintf("Unknown syscall %d\n", callno);

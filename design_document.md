@@ -107,17 +107,25 @@ int sys___getcwd(userptr_t buf, size_t buflen, int *retval);
 
 ## filesc
 
-Enable file syscalls.
+Enable file I/O syscalls (open/read/lseek/getcwd).
 
 ```
-optfile	   filesc	syscall/file_syscalls.c
+optfile		filesc	syscall/file_syscalls.c
+```
+
+## procsc
+
+Enable process management syscalls (execv).
+
+```
+optfile		procsc	syscall/execv.c
 ```
 
 
 # TODOs
 - add stdin, stdout and stderr to fdtable (idea: initiate in first process, pass down to children via fork)
 - cwd is per thread but fdtable is per process, fix inconsistency!
-- check if synchronization is done properly for file syscalls
+- check if synchronization is done properly/ necessary for file syscalls
 - syscalls
   - write (Pablo)
   - close (Pablo)
@@ -125,9 +133,10 @@ optfile	   filesc	syscall/file_syscalls.c
   - chdir (Pablo)
   - getpid
   - fork
-  - execv
+  - execv (Julian)
   - waitpid
   - exit
+  - kill_curthread
 - tests
   - open (Pablo)
   - read (Pablo)
@@ -139,7 +148,7 @@ optfile	   filesc	syscall/file_syscalls.c
   - __getcwd (Pablo)
   - getpid
   - fork
-  - execv
+  - execv (Pablo)
   - waitpid
   - exit
-  - exit
+  - killcurthread

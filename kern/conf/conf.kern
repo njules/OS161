@@ -377,8 +377,10 @@ file      syscall/loadelf.c
 file      syscall/runprogram.c
 file      syscall/time_syscalls.c
 
-defoption  filesc
-optfile	   filesc	syscall/file_syscalls.c
+defoption	filesc
+defoption	procsc
+optfile		filesc	syscall/file_syscalls.c
+optfile		procsc	syscall/execv.c
 
 
 #
