@@ -345,3 +345,17 @@ int sys_close(int fd)
 	curproc->p_fdtable[fd] = NULL;
 	return 0;
 }
+
+int sys_dup2(int oldfd, int newfd)
+{
+
+	if (oldfd < 0 || oldfd >= OPEN_MAX || newfd < 0 || newfd >= OPEN_MAX)
+	{
+		return EBADF;
+	}
+}
+// Include the header file unistd.h for using dup() and dup2() system call.
+// If the descriptor newfd was previously open, it is silently closed before being reused.
+// If oldfd is not a valid file descriptor, then the call fails, and newfd is not closed.
+// If oldfd is a valid file descriptor, and newfd has the same value as oldfd, then dup2() does
+// nothing, and returns newfd.
