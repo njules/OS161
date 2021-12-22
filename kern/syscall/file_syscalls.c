@@ -310,22 +310,20 @@ int sys_close(int fd)
 	struct fhandle *open_file;
 	open_file = curproc->p_fdtable[fd];
 
-	lock_acquire(open_file->lock);
-
-	if (open_file == NULL) // does it make sense do this check after the lock, if open_file was null?
+	if (open_file == NULL)
 	{
-		lock_release(open_file->lock);
 		return EBADF;
 	}
-	// KASSERT(open_file != NULL); // we make sure that open file is not null
+
+	lock_acquire(open_file->lock);
+	// we make sure that open file is not null
 	// we check if fd is invalid
 	if (fd < 0 || fd > OPEN_MAX)
 	{
 		lock_release(open_file->lock);
 		return EINVAL;
 	}
-	// entry_decref(entry, true);
-	// ft->entries[fd] = NULL;
+
 	if (open_file->ref_count -= 1 > 0)
 	{
 		lock_release(open_file->lock); // we release to not produce deadlock
@@ -346,16 +344,53 @@ int sys_close(int fd)
 	return 0;
 }
 
-int sys_dup2(int oldfd, int newfd)
+int sys_dup2(int oldfd, int newfd, int *output)
 {
 
 	if (oldfd < 0 || oldfd >= OPEN_MAX || newfd < 0 || newfd >= OPEN_MAX)
 	{
 		return EBADF;
 	}
+	// If oldfd is a valid file descriptor, and newfd has the same value as oldfd, then dup2() does
+	// nothing, and returns newfd.
+	if (oldfd == newfd)
+	{
+		return newfd;
+	}
+
+	struct fhandle *old_file;
+	struct fhandle *previous_file;
+	old_file = curproc->p_fdtable[oldfd];
+
+	if (old_file == NULL) // nothing to copy
+	{
+		return EBADF;
+	}
+
+	// If the descriptor newfd was previously open, it is silently closed before being reused.
+	previous_file = curproc->p_fdtable[newfd];
+	if (previous_file != NULL)
+	{
+		lock_acquire(previous_file->lock);
+
+		previous_file->ref_count -= 1;
+		if (previous_file->ref_count == 0)
+		{
+			vfs_close(previous_file->vn); // we close the previously open file
+			lock_destroy(previous_file->lock);
+		}
+		lock_release(previous_file->lock);
+		curproc->p_fdtable[newfd] = NULL; // we set it to null
+		kfree(previous_file);
+	}
+
+	//asign to the new fd the old file
+	curproc->p_fdtable[newfd] = old_file;
+	lock_acquire(old_file->lock);
+	old_file->ref_count += 1;
+	lock_release(old_file->lock);
+	*output = newfd;
+
+	return 0;
 }
 // Include the header file unistd.h for using dup() and dup2() system call.
-// If the descriptor newfd was previously open, it is silently closed before being reused.
-// If oldfd is not a valid file descriptor, then the call fails, and newfd is not closed.
-// If oldfd is a valid file descriptor, and newfd has the same value as oldfd, then dup2() does
-// nothing, and returns newfd.

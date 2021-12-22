@@ -121,6 +121,15 @@ __getcwd syscall handler.
 int sys___getcwd(userptr_t buf, size_t buflen, int *retval);
 ```
 
+## sys_dup2
+
+`kern/syscall/file_syscalls.c`
+
+dup2 syscall handler.
+
+```
+int sys_dup2(int oldfd, int newfd, int *output);
+```
 
 # Options
 
@@ -138,7 +147,6 @@ optfile	   filesc	syscall/file_syscalls.c
 - cwd is per thread but fdtable is per process, fix inconsistency!
 - check if synchronization is done properly for file syscalls
 - syscalls
-  - dup2 (Pablo)
   - chdir (Pablo)
   - getpid
   - fork
