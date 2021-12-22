@@ -72,6 +72,16 @@ open syscall handler.
 int sys_open(userptr_t filename, int flags, int *retval);
 ```
 
+## sys_close
+
+`kern/syscall/file_syscalls.c`
+
+close syscall handler.
+
+```
+int sys_close(int filehandler);
+```
+
 ## sys_read
 
 `kern/syscall/file_syscalls.c`
@@ -82,6 +92,15 @@ read syscall handler.
 int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval);
 ```
 
+## sys_write
+
+`kern/syscall/file_syscalls.c`
+
+write syscall handler.
+
+```
+int sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval);
+```
 ## sys_lseek
 
 `kern/syscall/file_syscalls.c`
@@ -119,8 +138,6 @@ optfile	   filesc	syscall/file_syscalls.c
 - cwd is per thread but fdtable is per process, fix inconsistency!
 - check if synchronization is done properly for file syscalls
 - syscalls
-  - write (Pablo)
-  - close (Pablo)
   - dup2 (Pablo)
   - chdir (Pablo)
   - getpid

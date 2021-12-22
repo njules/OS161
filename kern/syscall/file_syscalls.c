@@ -160,7 +160,7 @@ int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	return 0;
 }
 
-int sys_write(int fd, userptr_t buf_ptr, size_t size)
+int sys_write(int fd, userptr_t buf_ptr, size_t size, ssize_t *retval)
 {
 
 	if (fd < 0 || fd >= OPEN_MAX)
@@ -210,7 +210,8 @@ int sys_write(int fd, userptr_t buf_ptr, size_t size)
 
 	lock_release(open_file->lock);
 
-	return size - u.uio_resid;
+	*retval = size - u.uio_resid; // return number of bytes read on success
+	return 0;
 }
 
 int sys_lseek(int fd, off_t pos, int whence, off_t *retval)
