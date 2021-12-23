@@ -344,7 +344,7 @@ int sys_close(int fd)
 	return 0;
 }
 
-int sys_dup2(int oldfd, int newfd, int *output)
+int sys_dup2(int oldfd, int newfd, int *retval)
 {
 
 	if (oldfd < 0 || oldfd >= OPEN_MAX || newfd < 0 || newfd >= OPEN_MAX)
@@ -389,8 +389,52 @@ int sys_dup2(int oldfd, int newfd, int *output)
 	lock_acquire(old_file->lock);
 	old_file->ref_count += 1;
 	lock_release(old_file->lock);
-	*output = newfd;
+	*retval = newfd;
 
 	return 0;
 }
-// Include the header file unistd.h for using dup() and dup2() system call.
+
+int sys_chdir(const char *pathname, int32_t *retval)
+{
+	char *path;
+	size_t *path_length;
+
+	if (pathname)
+	{
+		return EFAULT; // or ENOTDIR or EINVAL
+	}
+
+	if (strlen(pathname))
+	{
+		return EINVAL;
+	}
+
+	// We need to check if pathname is valid, we copy the string from userspace
+	// to kernel and check ofr a valid address (already implemented in copyinout.c)
+	KASSERT(curthread != NULL); // we make sure the thread is not null
+
+	path = kmalloc(PATH_MAX);
+	path_length = kmalloc(sizeof(int));
+
+	int err = copyinstr((const_userptr_t)pathname, path, PATH_MAX, path_length);
+
+	if (err)
+	{
+		kfree(path);
+		kfree(path_length);
+		return err;
+	}
+	kfree(path);
+	kfree(path_length);
+
+	int result = vfs_chdir((char *)pathname);
+
+	if (result)
+	{
+		*retval = (int32_t)-1;
+		return result;
+	}
+
+	*retval = (int32_t)0;
+	return 0;
+}

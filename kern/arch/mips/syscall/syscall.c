@@ -192,6 +192,10 @@ void syscall(struct trapframe *tf)
 		if (err)
 			retval = -1;
 		break;
+	case SYS_chdir:
+		err = sys_chdir((const char *)tf->tf_a0,
+						&retval);
+		break;
 #endif
 
 	default:
