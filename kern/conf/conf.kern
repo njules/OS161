@@ -379,6 +379,8 @@ file      syscall/time_syscalls.c
 
 defoption  filesc
 optfile	   filesc	syscall/file_syscalls.c
+defoption  procsys
+optfile    procsys  syscall/proc_syscalls.c
 
 
 #
