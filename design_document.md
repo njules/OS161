@@ -227,8 +227,8 @@ Added initialization for pid handle table.
 - check if synchronization is done properly for file syscalls
 - check if there are problems with definition of retvals
 - Implement a set of statuses for the proc.h
+- Implement a function for exit processes and leave pidhandle table free
 - syscalls
-  - getpid
   - fork
   - execv
   - waitpid
@@ -242,7 +242,7 @@ Added initialization for pid handle table.
   - dup2 (Julian)
   - chdir (Julian)
   - __getcwd (Pablo)
-  - getpid
+  - getpid (Julian)
   - fork
   - execv
   - waitpid
