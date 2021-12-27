@@ -37,7 +37,10 @@
  */
 
 #include <spinlock.h>
+#include <thread.h>
+#include <machine/trapframe.h>
 #include <limits.h>
+#include <types.h>
 
 struct addrspace;
 struct thread;
@@ -60,22 +63,50 @@ struct vnode;
  * thread_switch needs to be able to fetch the current address space
  * without sleeping.
  */
-struct proc {
+/* Must be accessible to all processes globally */
+#if OPT_PROCSYS
+extern struct pidhandle *pidhandle;
+#endif
+
+struct proc
+{
 	char *p_name;			/* Name of this process */
-	struct spinlock p_lock;		/* Lock for this structure */
-	unsigned p_numthreads;		/* Number of threads in this process */
+	struct spinlock p_lock; /* Lock for this structure */
+	unsigned p_numthreads;	/* Number of threads in this process */
 
 	/* VM */
-	struct addrspace *p_addrspace;	/* virtual address space */
+	struct addrspace *p_addrspace; /* virtual address space */
 
 	/* VFS */
-	struct vnode *p_cwd;		/* current working directory */
+	struct vnode *p_cwd; /* current working directory */
 
 	/* add more material here as needed */
 #if OPT_FILESC
-	struct fhandle *p_fdtable[OPEN_MAX];  // file table
+	struct fhandle *p_fdtable[OPEN_MAX]; // file table
+#endif
+#if OPT_PROCSYS
+	pid_t pid;
+	struct array *children;
 #endif
 };
+
+#if OPT_PROCSYS
+struct pidhandle
+{
+	struct lock *pid_lock;
+	struct cv *pid_cv;					// This will be usable for waitpid
+	struct proc *pid_proc[PID_MAX + 1]; // array of all processes where index is pid
+	int qty_available;					// number of pid availables
+	int next_pid;						// lowest pid available in table
+};
+
+/* Initializes the pid handle*/
+void pidhandle_bootstrap(void);
+struct proc *get_proc_pid(pid_t);
+int pidhandle_add(struct proc *, int32_t *);
+int pidhandle_freepid(pid_t);
+
+#endif
 
 /* This is the process structure for the kernel and for kernel-only threads. */
 extern struct proc *kproc;
@@ -100,6 +131,5 @@ struct addrspace *proc_getas(void);
 
 /* Change the address space of the current process, and return the old one. */
 struct addrspace *proc_setas(struct addrspace *);
-
 
 #endif /* _PROC_H_ */

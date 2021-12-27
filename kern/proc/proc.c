@@ -48,27 +48,33 @@
 #include <current.h>
 #include <addrspace.h>
 #include <vnode.h>
+#include <limits.h>
+#include <kern/errno.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
  */
 struct proc *kproc;
 
+/* Global PID handle table */
+struct pidhandle *pidhandle;
+
 /*
  * Create a proc structure.
  */
-static
-struct proc *
+static struct proc *
 proc_create(const char *name)
 {
 	struct proc *proc;
 
 	proc = kmalloc(sizeof(*proc));
-	if (proc == NULL) {
+	if (proc == NULL)
+	{
 		return NULL;
 	}
 	proc->p_name = kstrdup(name);
-	if (proc->p_name == NULL) {
+	if (proc->p_name == NULL)
+	{
 		kfree(proc);
 		return NULL;
 	}
@@ -81,11 +87,12 @@ proc_create(const char *name)
 
 	/* VFS fields */
 	proc->p_cwd = NULL;
-
-	#if OPT_FILESC
-		bzero(proc->fdtable, OPEN_MAX*sizeof(struct fhandle*));  // initialize fdtable with null pointers
-	#endif
-
+#if OPT_FILESC
+	bzero(proc->fdtable, OPEN_MAX * sizeof(struct fhandle *)); // initialize fdtable with null pointers
+#endif
+#if OPT_PROCSYS
+	proc->pid = 1; // the kernel thread is defined to be 1
+#endif
 	return proc;
 }
 
@@ -95,8 +102,7 @@ proc_create(const char *name)
  * Note: nothing currently calls this. Your wait/exit code will
  * probably want to do so.
  */
-void
-proc_destroy(struct proc *proc)
+void proc_destroy(struct proc *proc)
 {
 	/*
 	 * You probably want to destroy and null out much of the
@@ -116,13 +122,15 @@ proc_destroy(struct proc *proc)
 	 */
 
 	/* VFS fields */
-	if (proc->p_cwd) {
+	if (proc->p_cwd)
+	{
 		VOP_DECREF(proc->p_cwd);
 		proc->p_cwd = NULL;
 	}
 
 	/* VM fields */
-	if (proc->p_addrspace) {
+	if (proc->p_addrspace)
+	{
 		/*
 		 * If p is the current process, remove it safely from
 		 * p_addrspace before destroying it. This makes sure
@@ -158,15 +166,25 @@ proc_destroy(struct proc *proc)
 		 */
 		struct addrspace *as;
 
-		if (proc == curproc) {
+		if (proc == curproc)
+		{
 			as = proc_setas(NULL);
 			as_deactivate();
 		}
-		else {
+		else
+		{
 			as = proc->p_addrspace;
 			proc->p_addrspace = NULL;
 		}
 		as_destroy(as);
+	}
+
+	/* PID Fields */
+	/* We empty the children array of process*/
+	int size = array_num(proc->children);
+	for (int i = 0; i < size; i++)
+	{
+		array_remove(proc->children, 0);
 	}
 
 	KASSERT(proc->p_numthreads == 0);
@@ -179,11 +197,11 @@ proc_destroy(struct proc *proc)
 /*
  * Create the process structure for the kernel.
  */
-void
-proc_bootstrap(void)
+void proc_bootstrap(void)
 {
 	kproc = proc_create("[kernel]");
-	if (kproc == NULL) {
+	if (kproc == NULL)
+	{
 		panic("proc_create for kproc failed\n");
 	}
 }
@@ -200,7 +218,16 @@ proc_create_runprogram(const char *name)
 	struct proc *newproc;
 
 	newproc = proc_create(name);
-	if (newproc == NULL) {
+	if (newproc == NULL)
+	{
+		return NULL;
+	}
+	/* PID fields */
+	int ret = pidhandle_add(newproc, &newproc->pid);
+
+	if (ret)
+	{
+		kfree(newproc);
 		return NULL;
 	}
 
@@ -216,7 +243,8 @@ proc_create_runprogram(const char *name)
 	 * the only reference to it.)
 	 */
 	spinlock_acquire(&curproc->p_lock);
-	if (curproc->p_cwd != NULL) {
+	if (curproc->p_cwd != NULL)
+	{
 		VOP_INCREF(curproc->p_cwd);
 		newproc->p_cwd = curproc->p_cwd;
 	}
@@ -234,8 +262,7 @@ proc_create_runprogram(const char *name)
  * the timer interrupt context switch, and any other implicit uses
  * of "curproc".
  */
-int
-proc_addthread(struct proc *proc, struct thread *t)
+int proc_addthread(struct proc *proc, struct thread *t)
 {
 	int spl;
 
@@ -261,8 +288,7 @@ proc_addthread(struct proc *proc, struct thread *t)
  * the timer interrupt context switch, and any other implicit uses
  * of "curproc".
  */
-void
-proc_remthread(struct thread *t)
+void proc_remthread(struct thread *t)
 {
 	struct proc *proc;
 	int spl;
@@ -294,7 +320,8 @@ proc_getas(void)
 	struct addrspace *as;
 	struct proc *proc = curproc;
 
-	if (proc == NULL) {
+	if (proc == NULL)
+	{
 		return NULL;
 	}
 
@@ -321,4 +348,135 @@ proc_setas(struct addrspace *newas)
 	proc->p_addrspace = newas;
 	spinlock_release(&proc->p_lock);
 	return oldas;
+}
+
+/* Returns the process assciated with the given PID. */
+struct proc *
+get_proc_pid(pid_t pid)
+{
+	if (pid < PID_MIN || pid > PID_MAX)
+	{
+		return EDOM;
+	}
+
+	struct proc *proc;
+
+	// only do this if pid lock is not already acquired, implement this
+	// TO DO
+	// If lock is not acquired, acquire it
+
+	proc = pidhandle->pid_proc[pid];
+
+	// release lock
+	return proc;
+}
+
+/* Frees a given PID from the PID handle table. */
+void pidhandle_freepid(pid_t pid)
+{
+	if (pid < PID_MIN || pid > PID_MAX)
+	{
+		return EDOM;
+	}
+
+	lock_acquire(pidhandle->pid_lock);
+	pidhandle->qty_available++;
+	pidhandle->pid_proc[pid] = NULL;
+	lock_release(pidhandle->pid_lock);
+}
+
+/*
+ * Initializes the PID handle when the kernel starts.
+ */
+void pidhandle_bootstrap()
+{
+	/* Set up the pid handle tables */
+	pidhandle = kmalloc(sizeof(struct pidhandle));
+	if (pidhandle == NULL)
+	{
+		panic("Error initializing PID handle table.\n");
+	}
+
+	pidhandle->pid_lock = lock_create("pid");
+	if (pidhandle->pid_lock == NULL)
+	{
+		panic("Error initializing PID handle's lock.\n");
+	}
+	/* TO DO, IMPLEMENT CV*/
+	pidhandle->pid_cv = cv_create("pidhandle cv");
+	if (pidhandle->pid_cv == NULL)
+	{
+		panic("Error initializing PID handle's cv.\n");
+	}
+
+	/* Set the kernel thread parameters */
+	pidhandle->qty_available = 1; /* 1 space for kernel */
+	pidhandle->next_pid = PID_MIN;
+
+	if (kproc == NULL)
+	{
+		return ESRCH;
+	}
+	pid_t kpid = kproc->pid;
+	/* Set the kernel thread process into the pid structure */
+	pidhandle->pid_proc[kpid] = kproc;
+	pidhandle->qty_available--;
+
+	/* Initialize the handle table */
+	for (int i = PID_MIN; i < PID_MAX; i++)
+	{
+		pidhandle->qty_available++;
+		pidhandle->pid_proc[i] = NULL;
+	}
+}
+
+/*
+ * Will add a process to the filetable and return the number in the retval input. Errors will be
+ * passed through the integer output following the format of the other system calls.
+ */
+int pidhandle_add(struct proc *proc, int32_t *retval)
+{
+	int next;
+
+	if (proc == NULL)
+	{
+		return ESRCH;
+	}
+
+	lock_acquire(pidhandle->pid_lock);
+
+	if (pidhandle->qty_available < 1)
+	{
+		lock_release(pidhandle->pid_lock);
+		return ENPROC;
+	}
+
+	array_add(curproc->children, proc, NULL);
+
+	next = pidhandle->next_pid;
+	*retval = next;
+
+	pidhandle->pid_proc[next] = proc;
+	pidhandle->qty_available--;
+
+	/* Find next avaliable pid (from actual "next"), maybe implement status for processes */
+	if (pidhandle->qty_available > 0)
+	{
+		for (int i = next; i < PID_MAX; i++)
+		{
+			if (pidhandle->pid_proc[i] == NULL)
+			{
+				pidhandle->next_pid = i;
+				break;
+			}
+		}
+	}
+	else
+	{
+		pidhandle->next_pid = PID_MAX + 1;
+	}
+
+	lock_release(pidhandle->pid_lock);
+
+	return 0;
 }

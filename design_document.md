@@ -11,6 +11,9 @@ Added `p_fdtable`
 It is indexed by the file descriptor `fd`, which returned after opening a file.
 `p_fdtable` stores file handles `fhandle`.
 It is initialized in `static struct proc *proc_create(const char *name) {}` in `kern/proc/proc.c`.
+Added `pid`
+`pid` is a pid_t type argument that represents the id of the process.
+Added `children`, which corresponds to al of the child processes.
 
 ```
 struct proc {
@@ -28,8 +31,29 @@ struct proc {
 #if OPT_FILESC
 	struct fhandle *p_fdtable[OPEN_MAX];  // file table
 #endif
+#if OPT_PROCSYS
+	pid_t pid;
+	struct array *children;
+#endif
 };
 ```
+## pdhandle 
+
+`kern/include/proc.h`
+
+PID handle structure. 
+
+```
+struct pidhandle
+{
+	struct lock *pid_lock;
+	struct cv *pid_cv;
+	struct proc *pid_proc[PID_MAX + 1];
+	int qty_available; 
+	int next_pid;
+};
+
+``` 
 
 ## fhandle
 
@@ -141,6 +165,36 @@ chdir syscall handler.
 int sys_chdir(const char *path, int32_t *retval);
 ```
 
+## pidhandle_bootstrap
+
+`kern/proc/proc.c`
+
+initialize pidhandle structure.
+
+```
+void pidhandle_bootstrap(void);
+```
+
+## get_proc_pid
+
+`kern/proc/proc.c`
+
+get process associated with pid.
+
+```
+struct proc *get_proc_pid(pid_t);
+```
+
+## pidhandle_add
+
+`kern/proc/proc.c`
+
+get process associated with pid.
+
+```
+struct proc *get_proc_pid(pid_t);
+```
+
 # Options
 
 ## filesc
@@ -151,12 +205,28 @@ Enable file syscalls.
 optfile	   filesc	syscall/file_syscalls.c
 ```
 
+## procsys
+
+Enable process syscalls.
+
+```
+optfile	   procsys syscall/proc_syscalls.c
+```
+
+# Modifies
+
+## main
+
+`kern/main/main.c`
+
+Added initialization for pid handle table.
 
 # TODOs
 - add stdin, stdout and stderr to fdtable (idea: initiate in first process, pass down to children via fork)
 - cwd is per thread but fdtable is per process, fix inconsistency!
 - check if synchronization is done properly for file syscalls
 - check if there are problems with definition of retvals
+- Implement a set of statuses for the proc.h
 - syscalls
   - getpid
   - fork
