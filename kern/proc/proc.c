@@ -431,8 +431,7 @@ void pidhandle_bootstrap()
 }
 
 /*
- * Will add a process to the filetable and return the number in the retval input. Errors will be
- * passed through the integer output following the format of the other system calls.
+ * Manages adding a new process to the parent process, it also manages the pid table with the new entry. 
  */
 int pidhandle_add(struct proc *proc, int32_t *retval)
 {
