@@ -104,7 +104,7 @@ struct pidhandle
 void pidhandle_bootstrap(void);
 struct proc *get_proc_pid(pid_t);
 int pidhandle_add(struct proc *, int32_t *);
-int pidhandle_freepid(pid_t);
+int pidhandle_free_pid(pid_t);
 
 #endif
 

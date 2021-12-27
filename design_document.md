@@ -189,10 +189,20 @@ struct proc *get_proc_pid(pid_t);
 
 `kern/proc/proc.c`
 
-get process associated with pid.
+When a new process is added, it updates the pid table handle and updates children list.
 
 ```
-struct proc *get_proc_pid(pid_t);
+int pidhandle_add(struct proc *, int32_t *);
+```
+
+## pidhandle_free_pid
+
+`kern/proc/proc.c`
+
+frees a given pid from the pid handle table
+
+```
+int pidhandle_free_pid(pid_t);
 ```
 
 # Options

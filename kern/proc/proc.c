@@ -372,7 +372,7 @@ get_proc_pid(pid_t pid)
 }
 
 /* Frees a given PID from the PID handle table. */
-void pidhandle_freepid(pid_t pid)
+void pidhandle_free_pid(pid_t pid)
 {
 	if (pid < PID_MIN || pid > PID_MAX)
 	{
