@@ -7,5 +7,7 @@
 #include "opt-procsys.h"
 #if OPT_PROCSYS
 
+int sys_getpid(int32_t *retval);
+
 #endif
 #endif

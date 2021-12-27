@@ -11,3 +11,16 @@
 #include <copyinout.h>     // for moving data (copyinstr)
 #include <kern/seek.h>     // for seek constants (SEEK_SET, SEEK_CUR, ..)
 #include <kern/stat.h>     // for getting file info via VOP_STAT (stat)
+
+/*
+ Gets PID of the current process.
+ */
+int sys_getpid(int32_t *retval)
+{
+    lock_acquire(pidhandle->pid_lock);
+
+    *retval = curproc->pid;
+
+    lock_release(pidhandle->pid_lock);
+    return 0;
+}

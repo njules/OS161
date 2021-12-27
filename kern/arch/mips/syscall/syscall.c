@@ -195,9 +195,18 @@ void syscall(struct trapframe *tf)
 	case SYS_chdir:
 		err = sys_chdir((const char *)tf->tf_a0,
 						&retval);
+		if (err)
+			retval = -1;
 		break;
 #endif
+#if OPT_PROCSYS
+	case SYS_getpid:
+		err = sys_getpid(&retval);
+		if (err)
+			retval = -1;
+		break;
 
+#endif
 	default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;
