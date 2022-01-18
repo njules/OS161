@@ -78,7 +78,7 @@ struct lock
         // add what you need here
         // (don't forget to mark things volatile as needed)
 #if OPT_SYNCH
-        struct sempaphore *lk_sem;
+        struct semaphore *lk_sem;
         struct spinlock lk_lock;
         volatile struct thread *lk_owner;
         volatile int lk_flag;
