@@ -193,16 +193,8 @@ void lock_acquire(struct lock *lock)
 
 #if OPT_SYNCH
 	KASSERT(lock != NULL); // DEBUG
-	if (lock == NULL)
-	{
-		return EAGAIN;
-	}
-	if (!(lock_do_i_hold(lock)))
-	{
-		return EPERM;
-	}
+	
 	KASSERT(curthread->t_in_interrupt == false);
-	KASSERT(lock->lk_flag == false);
 	P(lock->lk_sem);
 	spinlock_acquire(&lock->lk_lock);
 	KASSERT(lock->lk_owner == NULL);
@@ -211,17 +203,13 @@ void lock_acquire(struct lock *lock)
 	spinlock_release(&lock->lk_lock);
 
 #endif
-	// (void)lock; // suppress warning until code gets written
+	(void)lock; // suppress warning until code gets written
 }
 
 void lock_release(struct lock *lock)
 {
 	// Write this
 #if OPT_SYNCH
-	if (lock == NULL)
-	{
-		return EAGAIN;
-	}
 	KASSERT(lock_do_i_hold(lock));
 	KASSERT(lock->lk_flag == true);
 	spinlock_acquire(&lock->lk_lock);

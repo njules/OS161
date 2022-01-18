@@ -120,16 +120,16 @@ void syscall(struct trapframe *tf)
 			err = retval;
 		else
 			err = 0;
-		break;
+		break;*/
+
 	case SYS_write:
-		retval = sys_write((int)tf->tf_a0,
-						   (userptr_t)tf->tf_a1,
-						   (size_t)tf->tf_a2);
-		if (retval < 0)
-			err = retval;
-		else
-			err = 0;
+		err = sys_write((int)tf->tf_a0,
+				(userptr_t)tf->tf_a1,
+				(size_t)tf->tf_a2,
+				&retval);
+		if (err) retval = -1;
 		break;
+/*
 	case SYS_open:
 		err = sys_open((userptr_t)tf->tf_a0,
 					   (int)tf->tf_a1,
