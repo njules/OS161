@@ -198,10 +198,6 @@ void lock_acquire(struct lock *lock)
 	{
 		return EAGAIN;
 	}
-	if (!(lock_do_i_hold(lock)))
-	{
-		return EPERM;
-	}
 	KASSERT(curthread->t_in_interrupt == false);
 	KASSERT(lock->lk_flag == false);
 	P(lock->lk_sem);
