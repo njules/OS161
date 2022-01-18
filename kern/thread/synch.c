@@ -144,7 +144,7 @@ lock_create(const char *name)
 {
 	struct lock *lock;
 
-	lock = kmalloc(sizeof(*lock));
+	lock = kmalloc(sizeof( struct lock));
 	if (lock == NULL)
 	{
 		return NULL;
@@ -165,9 +165,10 @@ lock_create(const char *name)
 		kfree(lock);
 		return NULL; //TODO : search the correct error to throw
 	}
+	
+	spinlock_init(&lock->lk_lock);
 	lock->lk_owner = NULL;
 	lock->lk_flag = false;
-	spinlock_init(&lock->lk_lock);
 
 #endif
 	return lock;
