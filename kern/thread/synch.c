@@ -193,6 +193,7 @@ void lock_acquire(struct lock *lock)
 
 #if OPT_SYNCH
 	KASSERT(lock != NULL); // DEBUG
+	kprintf("Im acquiring");
 	if (lock == NULL)
 	{
 		return EAGAIN;
