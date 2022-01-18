@@ -65,14 +65,11 @@ void
 kprintf_bootstrap(void)
 {
 	KASSERT(kprintf_lock == NULL);
-	kprintf("BREAKPOINT 1.0");
 	kprintf_lock = lock_create("kprintf_lock");
-	kprintf("BREAKPOINT 1.1");
 	if (kprintf_lock == NULL) {
 		panic("Could not create kprintf_lock\n");
 	}
 	spinlock_init(&kprintf_spinlock);
-	kprintf("BREAKPOINT 1.2");
 }
 
 /*

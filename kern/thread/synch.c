@@ -191,10 +191,8 @@ void lock_acquire(struct lock *lock)
 
 #if OPT_SYNCH
 	KASSERT(lock != NULL); // DEBUG
-	kprintf("Im acquiring\n");
 	KASSERT(!(lock_do_i_hold(lock)));
 	KASSERT(curthread->t_in_interrupt == false);
-	KASSERT(lock->lk_flag == false);
 
 	spinlock_acquire(&lock->lk_lock);
 	while (lock->lk_owner != NULL && lock->lk_flag == true)
@@ -203,6 +201,7 @@ void lock_acquire(struct lock *lock)
 	}
 
 	KASSERT(lock->lk_owner == NULL);
+	
 	lock->lk_flag = true;
 	lock->lk_owner = curthread;
 	spinlock_release(&lock->lk_lock);
@@ -225,7 +224,6 @@ void lock_release(struct lock *lock)
 	wchan_wakeone(lock->lk_wchan, &lock->lk_lock);
 
 	spinlock_release(&lock->lk_lock);
-	kprintf("I passed released\n");
 
 #endif
 

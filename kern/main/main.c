@@ -122,14 +122,10 @@ boot(void)
 
 	/* Late phase of initialization. */
 	vm_bootstrap();
-	kprintf("BREAKPOINT 1");
 	kprintf_bootstrap();
-	kprintf("BREAKPOINT 2");
 	thread_start_cpus();
-	kprintf("BREAKPOINT 3");
 	/* Default bootfs - but ignore failure, in case emu0 doesn't exist */
 	vfs_setbootfs("emu0");
-	kprintf("BREAKPOINT 4");
 	kheap_nextgeneration();
 
 	/*
