@@ -39,7 +39,6 @@
 #include <thread.h>
 #include <current.h>
 #include <synch.h>
-#include <kern/errno.h> // Errors (EBADF, EFAULT, ..)
 
 ////////////////////////////////////////////////////////////
 //
@@ -160,7 +159,6 @@ lock_create(const char *name)
 
 #if OPT_SYNCH
 	lock->lk_sem = sem_create(lock->lk_name, 1);
-	KASSERT(lock->lk_sem != NULL);
 	if (lock->lk_sem == NULL)
 	{
 		kfree(lock->lk_name);
@@ -193,11 +191,8 @@ void lock_acquire(struct lock *lock)
 
 #if OPT_SYNCH
 	KASSERT(lock != NULL); // DEBUG
-	kprintf("Im acquiring");
-	if (lock == NULL)
-	{
-		return EAGAIN;
-	}
+	kprintf("Im acquiring\n");
+	KASSERT(!(lock_do_i_hold(lock)));
 	KASSERT(curthread->t_in_interrupt == false);
 	KASSERT(lock->lk_flag == false);
 	P(lock->lk_sem);
@@ -208,26 +203,24 @@ void lock_acquire(struct lock *lock)
 	spinlock_release(&lock->lk_lock);
 
 #endif
-	// (void)lock; // suppress warning until code gets written
+	 (void)lock; // suppress warning until code gets written
 }
 
 void lock_release(struct lock *lock)
 {
 	// Write this
 #if OPT_SYNCH
-	if (lock == NULL)
-	{
-		return EAGAIN;
-	}
+	KASSERT(lock != NULL);
 	KASSERT(lock_do_i_hold(lock));
-	KASSERT(lock->lk_flag == true);
 	spinlock_acquire(&lock->lk_lock);
 
 	lock->lk_owner = NULL;
 	lock->lk_flag = false;
 	V(lock->lk_sem);
+	
 
 	spinlock_release(&lock->lk_lock);
+	kprintf("I passed released\n");
 
 #endif
 
@@ -238,9 +231,12 @@ bool lock_do_i_hold(struct lock *lock)
 {
 	// Write this
 #if OPT_SYNCH
-	KASSERT(lock != NULL);
+	bool res;
+	spinlock_acquire(&lock->lk_lock);
+	res = lock->lk_owner == curthread;
+	spinlock_release(&lock->lk_lock);
+	return res;
 
-	return (lock->lk_flag == true && lock->lk_owner == curthread);
 
 #endif
 
