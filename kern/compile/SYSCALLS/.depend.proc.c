@@ -3,7 +3,8 @@ proc.o: ../../proc/proc.c ../../include/types.h \
  includelinks/machine/types.h ../../include/spl.h ../../include/cdefs.h \
  ../../include/proc.h ../../include/spinlock.h \
  includelinks/machine/spinlock.h ../../include/limits.h \
- ../../include/kern/limits.h ../../include/current.h \
+ ../../include/kern/limits.h ../../include/file_syscalls.h \
+ ../../include/synch.h opt-filesys.h ../../include/current.h \
  includelinks/machine/current.h ../../include/thread.h \
  ../../include/array.h ../../include/lib.h opt-noasserts.h \
  ../../include/threadlist.h includelinks/machine/thread.h \

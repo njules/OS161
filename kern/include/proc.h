@@ -38,6 +38,7 @@
 
 #include <spinlock.h>
 #include <limits.h>
+#include <file_syscalls.h>
 
 struct addrspace;
 struct thread;
@@ -72,7 +73,7 @@ struct proc {
 	struct vnode *p_cwd;		/* current working directory */
 
 	/* add more material here as needed */
-#if OPT_FILESC
+#if OPT_FILESYS
 	struct fhandle *p_fdtable[OPEN_MAX];  // file table
 #endif
 };

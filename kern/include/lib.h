@@ -89,6 +89,10 @@
 #define DB_NET         0x0400
 #define DB_NETFS       0x0800
 #define DB_KMALLOC     0x1000
+// useful for debugging the project
+#define DB_STARTUP     0x2000
+#define DB_SYSFILE     0x4000
+#define DB_SYSEXECV    0x8000
 
 extern uint32_t dbflags;
 

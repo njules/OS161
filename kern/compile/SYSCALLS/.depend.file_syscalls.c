@@ -3,7 +3,7 @@ file_syscalls.o: ../../syscall/file_syscalls.c \
  ../../include/kern/types.h includelinks/kern/machine/types.h \
  includelinks/machine/types.h ../../include/synch.h \
  ../../include/spinlock.h ../../include/cdefs.h \
- includelinks/machine/spinlock.h opt-filesc.h ../../include/kern/errno.h \
+ includelinks/machine/spinlock.h opt-filesys.h ../../include/kern/errno.h \
  ../../include/limits.h ../../include/kern/limits.h \
  ../../include/current.h includelinks/machine/current.h \
  ../../include/thread.h ../../include/array.h ../../include/lib.h \

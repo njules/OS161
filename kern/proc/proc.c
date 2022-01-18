@@ -82,8 +82,9 @@ proc_create(const char *name)
 	/* VFS fields */
 	proc->p_cwd = NULL;
 
-	#if OPT_FILESC
-		bzero(proc->fdtable, OPEN_MAX*sizeof(struct fhandle*));  // initialize fdtable with null pointers
+	#if OPT_FILESYS
+	DEBUG(DB_SYSFILE, "Initializing file table\n");
+	bzero(proc->p_fdtable, OPEN_MAX*sizeof(struct fhandle*));
 	#endif
 
 	return proc;

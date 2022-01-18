@@ -1,16 +1,71 @@
 #include "file_syscalls.h" // prototype for this file
 #include <kern/errno.h>	   // Errors (EBADF, EFAULT, ..)
-#include <types.h>		   // types (userptr_t, size_t, ..)
-#include <limits.h>		   // OPEN_MAX
+#include <types.h>	   // types (userptr_t, size_t, ..)
+#include <limits.h>	   // OPEN_MAX
 #include <current.h>	   // curproc
-#include <proc.h>		   // proc struct (for curproc)
+#include <proc.h>	   // proc struct (for curproc)
 #include <kern/fcntl.h>	   // open flags (O_RDONLY, O_WRONLY, ..)
-#include <uio.h>		   // for moving data (uio, iovec)
-#include <vnode.h>		   // for moving data (VOP_OPEN, VOP_READ, ..)
-#include <vfs.h>		   // for vfs functions (vfs_open, vfs_close)
+#include <uio.h>	   // for moving data (uio, iovec)
+#include <vnode.h>	   // for moving data (VOP_OPEN, VOP_READ, ..)
+#include <vfs.h>	   // for vfs functions (vfs_open, vfs_close)
 #include <copyinout.h>	   // for moving data (copyinstr)
 #include <kern/seek.h>	   // for seek constants (SEEK_SET, SEEK_CUR, ..)
 #include <kern/stat.h>	   // for getting file info via VOP_STAT (stat)
+
+
+int
+create_fhandle_struct(char* path, int flags, int mode, off_t offset, struct fhandle** retval)
+{
+	struct vnode *vn;
+	int err;
+
+	// open file
+	err = vfs_open(path, flags, mode, &vn);
+	if (err) {
+		return err;
+	}
+
+	// initialize fhandle struct
+	(*retval) = kmalloc(sizeof(struct fhandle));
+	(*retval)->vn = vn;
+	(*retval)->offset = offset;
+	(*retval)->flags = flags;
+	(*retval)->ref_count = 1;
+	(*retval)->lock = lock_create(path);
+
+	return 0;
+}
+
+int
+open_console(struct fhandle *fdtable[])
+{
+	int err;
+
+	char con0[] = "con:";
+	err = create_fhandle_struct(con0, O_RDONLY, 0664, 0, &fdtable[0]);
+	if (err) {
+		return err;
+	}
+
+	char con1[] = "con:";
+	err = create_fhandle_struct(con1, O_WRONLY, 0664, 0, &fdtable[1]);
+	if (err) {
+		vfs_close(fdtable[0]->vn);
+		kfree(fdtable[0]);
+		return err;
+	}
+
+	char con2[] = "con:";
+	err = create_fhandle_struct(con2, O_WRONLY, 0664, 0, &fdtable[2]);
+	if (err) {
+		vfs_close(fdtable[0]->vn);
+		kfree(fdtable[0]);
+		vfs_close(fdtable[1]->vn);
+		kfree(fdtable[1]);
+		return err;
+	}
+	return 0;
+}
 
 int sys_open(userptr_t filename, int flags, int *retval)
 {
@@ -162,30 +217,43 @@ int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 
 int sys_write(int fd, userptr_t buf_ptr, size_t size, ssize_t *retval)
 {
-
-	if (fd < 0 || fd >= OPEN_MAX)
-	{ // if fd out of bounds of fdtable
-		return EBADF;
-	}
-	// should we lock the process first? or just the file
 	struct fhandle *open_file;
-	open_file = curproc->p_fdtable[fd]; // we get the file from table
-
-	if (open_file == NULL)
-	{
-		return EBADF;
-	}
-
-	if (!(open_file->flags && (O_WRONLY || O_RDWR)))
-	{
-		return EBADF;
-	}
-
-	lock_acquire(open_file->lock); // synchronize access to file handle during write
-
 	struct iovec iov;
 	struct uio u;
-	int result;
+	int err;
+
+	DEBUG(DB_SYSFILE,
+		"Write syscall invoked, fd:%d, buf_ptr: %p, size: %d.\n",
+		fd, buf_ptr, size);
+
+	/* check fd within bounds of p_fdtable */
+	if (fd < 0 || fd >= OPEN_MAX) {
+		DEBUG(DB_SYSFILE,
+			"Write error: File descriptor out of bounds. fd: %d.\n",
+			fd);
+		return EBADF;
+	}
+
+	// TODO: should we lock the process first? or just the file
+	open_file = curproc->p_fdtable[fd]; // get file handle from file table
+
+	if (open_file == NULL) {
+		DEBUG(DB_SYSFILE,
+			"Write error: fd points to invalid p_fdtable entry. fd:%d.\n",
+			fd);
+		return EBADF;
+	}
+
+	if (!(open_file->flags & (O_WRONLY | O_RDWR))) {
+		DEBUG(DB_SYSFILE,
+			"Write error: Flags do not allow file to be written to."
+			" fd:%d, flags:%X.\n",
+			fd, open_file->flags);
+		return EBADF;
+	}
+	
+	// TODO: enable synch again
+	// lock_acquire(open_file->lock); // synchronize access to file handle during write
 
 	iov.iov_ubase = buf_ptr; // we set a user pointer to the buffer , change to ubase
 	iov.iov_len = size;
@@ -197,18 +265,22 @@ int sys_write(int fd, userptr_t buf_ptr, size_t size, ssize_t *retval)
 	u.uio_rw = UIO_WRITE;				// we set action to write
 	u.uio_space = curproc->p_addrspace; // we set the addres space for the user pointer
 
-	result = VOP_WRITE(open_file->vn, &u); // write to file, if not all the content was writtend, it returns -1
+	err = VOP_WRITE(open_file->vn, &u); // write to file, if not all the content was writtend, it returns -1
 
-	if (result)
-	{
-		lock_release(open_file->lock); // we release the lock and return result
-		return result;
+	if (err) {
+		DEBUG(DB_SYSFILE,
+			"Write error: Couldn't write to uio struct. err:%d",
+			err);
+		// TODO: enable synch again
+		// lock_release(open_file->lock); // we release the lock and return result
+		return err;
 	}
 	// If not all the content has been written
 
 	open_file->offset += ((off_t)size - u.uio_resid);
 
-	lock_release(open_file->lock);
+	// TODO: enable synch again
+	// lock_release(open_file->lock);
 
 	*retval = size - u.uio_resid; // return number of bytes read on success
 	return 0;

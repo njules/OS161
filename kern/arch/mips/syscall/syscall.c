@@ -35,6 +35,7 @@
 #include <thread.h>
 #include <current.h>
 #include <syscall.h>
+#include <file_syscalls.h>
 
 /*
  * System call dispatcher.
@@ -109,41 +110,32 @@ void syscall(struct trapframe *tf)
 		break;
 
 		/* Add stuff here */
-#if OPT_FILESC
-	case SYS_READ:
-		retval = sys_read((int)tf->tf_a0,
-						  (userptr_t)tf->tf_a1,
-						  (size_t)tf->tf_a2);
-		if (retval < 0)
-			err = retval;
-		else
-			err = 0;
-		break;
-	case SYS_WRITE:
-		retval = sys_write((int)tf->tf_a0,
-						   (userptr_t)tf->tf_a1,
-						   (size_t)tf->tf_a2); /* Keep first, second and third arguments into register associated with trapframe of syscall */
-		if (retval < 0)
-			err = retval;
-		else
-			err = 0;
-    break;
-	    case SYS_OPEN:
+#if OPT_FILESYS
+/*
+	case SYS_open:
 		err = sys_open((userptr_t)tf->tf_a0,
 			       (int)tf->tf_a1,
 			       &retval);
 		if (err) retval = -1;
 		break;
 
-	    case SYS_READ:
+	case SYS_read:
 		err = sys_read((int)tf->tf_a0,
 			       (userptr_t)tf->tf_a1,
 			       (size_t)tf->tf_a2,
 			       &retval);
 		if (err) retval = -1;
-		break;
+		break;*/
 
-	    case SYS_LSEEK:
+	case SYS_write:
+		err = sys_write((int)tf->tf_a0,
+				(userptr_t)tf->tf_a1,
+				(size_t)tf->tf_a2,
+				&retval);
+		if (err) retval = -1;
+		break;
+/*
+	case SYS_lseek:
 		off_t offset = (((off_t)tf->tf_a2) << 32) | tf->tf_a3;  // get 64 bit offset from a2:a3
 		int whence;
 		err = copyin((userptr_t)tf->tf_sp+16, &whence, sizeof(whence));  // get whence from stack
@@ -165,12 +157,12 @@ void syscall(struct trapframe *tf)
 		}
 		break;
 
-	    case SYS___GETCWD:
+	case SYS___getcwd:
 		err = sys___getcwd((userptr_t)tf->tf_a1,
 				   (size_t)tf->tf_a2,
 				   &retval);
 		if (err) retval = -1;
-		break;
+		break;*/
 #endif
 
 	default:

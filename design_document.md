@@ -10,7 +10,8 @@ Added `p_fdtable`
 `p_fdtable` is an array of length `OPEN_MAX`.
 It is indexed by the file descriptor `fd`, which returned after opening a file.
 `p_fdtable` stores file handles `fhandle`.
-It is initialized in `static struct proc *proc_create(const char *name) {}` in `kern/proc/proc.c`.
+It is initialized in `static struct proc *proc_create(const char *name);` in `kern/proc/proc.c`.
+`stdin`, `stdout`, and `stderr` are opened in `int runprogram(char *progname);` and added to `p_fdtable`.
 
 ```
 struct proc {
@@ -124,18 +125,18 @@ int sys___getcwd(userptr_t buf, size_t buflen, int *retval);
 
 # Options
 
-## filesc
+## filesys
 
 Enable file syscalls.
 
 ```
-optfile	   filesc	syscall/file_syscalls.c
+optfile	   filesys	syscall/file_syscalls.c
 ```
 
 
 # TODOs
 - add stdin, stdout and stderr to fdtable (idea: initiate in first process, pass down to children via fork)
-- cwd is per thread but fdtable is per process, fix inconsistency!
+- cwd is per thread but fdtable is per process, fix inconsistency?
 - check if synchronization is done properly for file syscalls
 - syscalls
   - dup2 (Pablo)

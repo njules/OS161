@@ -44,6 +44,7 @@
 #include <vfs.h>
 #include <syscall.h>
 #include <test.h>
+#include <file_syscalls.h>  // to open stdin, stdout and stderr
 
 /*
  * Load program "progname" and start running it in usermode.
@@ -58,6 +59,9 @@ runprogram(char *progname)
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
 	int result;
+
+	// TODO: why output scrambled?
+	kprintf("                                                     \n");
 
 	/* Open the file. */
 	result = vfs_open(progname, O_RDONLY, 0, &v);
@@ -96,6 +100,15 @@ runprogram(char *progname)
 		/* p_addrspace will go away when curproc is destroyed */
 		return result;
 	}
+
+#if OPT_FILESYS
+	/* Open stdin, stdout and stderr */
+	DEBUG(DB_SYSFILE, "Opening console file descriptors.\n");
+	result = open_console(curproc->p_fdtable);
+	if (result) {
+		return result;
+	}
+#endif
 
 	/* Warp to user mode. */
 	enter_new_process(0 /*argc*/, NULL /*userspace addr of argv*/,
