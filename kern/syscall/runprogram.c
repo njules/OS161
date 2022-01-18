@@ -44,7 +44,7 @@
 #include <vfs.h>
 #include <syscall.h>
 #include <test.h>
-#include <file_syscalls.h>  // to open stdin, stdout and stderr
+#include <file_syscalls.h> // to open stdin, stdout and stderr
 
 /*
  * Load program "progname" and start running it in usermode.
@@ -52,8 +52,7 @@
  *
  * Calls vfs_open on progname and thus may destroy it.
  */
-int
-runprogram(char *progname)
+int runprogram(char *progname)
 {
 	struct addrspace *as;
 	struct vnode *v;
@@ -64,8 +63,10 @@ runprogram(char *progname)
 	kprintf("                                                     \n");
 
 	/* Open the file. */
+	kprintf("BKPOINT 1\n");
 	result = vfs_open(progname, O_RDONLY, 0, &v);
-	if (result) {
+	if (result)
+	{
 		return result;
 	}
 
@@ -73,19 +74,26 @@ runprogram(char *progname)
 	KASSERT(proc_getas() == NULL);
 
 	/* Create a new address space. */
+	kprintf("BKPOINT 2\n");
 	as = as_create();
-	if (as == NULL) {
+	kprintf("BKPOINT 3\n");
+	if (as == NULL)
+	{
 		vfs_close(v);
 		return ENOMEM;
 	}
 
 	/* Switch to it and activate it. */
 	proc_setas(as);
+	kprintf("BKPOINT 4\n");
 	as_activate();
+	kprintf("BKPOINT 5\n");
 
 	/* Load the executable. */
 	result = load_elf(v, &entrypoint);
-	if (result) {
+	kprintf("BKPOINT 6\n");
+	if (result)
+	{
 		/* p_addrspace will go away when curproc is destroyed */
 		vfs_close(v);
 		return result;
@@ -96,7 +104,8 @@ runprogram(char *progname)
 
 	/* Define the user stack in the address space */
 	result = as_define_stack(as, &stackptr);
-	if (result) {
+	if (result)
+	{
 		/* p_addrspace will go away when curproc is destroyed */
 		return result;
 	}
@@ -105,18 +114,19 @@ runprogram(char *progname)
 	/* Open stdin, stdout and stderr */
 	DEBUG(DB_SYSFILE, "Opening console file descriptors.\n");
 	result = open_console(curproc->p_fdtable);
-	if (result) {
+	kprintf("BKPOINT 6\n");
+	if (result)
+	{
 		return result;
 	}
 #endif
 
 	/* Warp to user mode. */
 	enter_new_process(0 /*argc*/, NULL /*userspace addr of argv*/,
-			  NULL /*userspace addr of environment*/,
-			  stackptr, entrypoint);
+					  NULL /*userspace addr of environment*/,
+					  stackptr, entrypoint);
 
 	/* enter_new_process does not return. */
 	panic("enter_new_process returned\n");
 	return EINVAL;
 }
-
