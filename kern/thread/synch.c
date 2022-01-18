@@ -144,7 +144,7 @@ lock_create(const char *name)
 {
 	struct lock *lock;
 
-	lock = kmalloc(sizeof( struct lock));
+	lock = kmalloc(sizeof(struct lock));
 	if (lock == NULL)
 	{
 		return NULL;
@@ -158,14 +158,13 @@ lock_create(const char *name)
 	}
 
 #if OPT_SYNCH
-	lock->lk_sem = sem_create(lock->lk_name, 1);
-	if (lock->lk_sem == NULL)
+	lock->lk_wchan = wchan_create(lock->lk_name);
+	if (lock->lk_wchan == NULL)
 	{
 		kfree(lock->lk_name);
 		kfree(lock);
 		return NULL; //TODO : search the correct error to throw
 	}
-	
 	spinlock_init(&lock->lk_lock);
 	lock->lk_owner = NULL;
 	lock->lk_flag = false;
@@ -181,7 +180,7 @@ void lock_destroy(struct lock *lock)
 	// add stuff here as needed
 #if OPT_SYNCH
 	spinlock_cleanup(&lock->lk_lock);
-	sem_destroy(lock->lk_sem);
+	wchan_destroy(lock->lk_wchan);
 #endif
 	kfree(lock->lk_name);
 	kfree(lock);
@@ -196,11 +195,16 @@ void lock_acquire(struct lock *lock)
 	KASSERT(!(lock_do_i_hold(lock)));
 	KASSERT(curthread->t_in_interrupt == false);
 	KASSERT(lock->lk_flag == false);
-	P(lock->lk_sem);
+
 	spinlock_acquire(&lock->lk_lock);
+	while (lock->lk_owner != NULL && lock->lk_flag == true)
+	{
+		wchan_sleep(lock->lk_wchan, &lock->lk_lock);
+	}
+
 	KASSERT(lock->lk_owner == NULL);
-	lock->lk_owner = curthread;
 	lock->lk_flag = true;
+	lock->lk_owner = curthread;
 	spinlock_release(&lock->lk_lock);
 
 #endif
@@ -217,7 +221,8 @@ void lock_release(struct lock *lock)
 
 	lock->lk_owner = NULL;
 	lock->lk_flag = false;
-	V(lock->lk_sem);
+
+	wchan_wakeone(lock->lk_wchan, &lock->lk_lock);
 
 	spinlock_release(&lock->lk_lock);
 	kprintf("I passed released\n");
