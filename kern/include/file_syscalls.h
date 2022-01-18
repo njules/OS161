@@ -26,6 +26,8 @@ int sys_lseek(int fd, off_t pos, int whence, off_t *retval);
 int sys___getcwd(userptr_t buf, size_t buflen, int *retval);
 int sys_write(int fd, userptr_t buf_ptr, size_t size, ssize_t *retval);
 int sys_close(int fd);
+int sys_dup2(int oldfd, int newfd, int *retval);
+int sys_chdir(const char *path, int32_t *retval);
 
 #endif
 

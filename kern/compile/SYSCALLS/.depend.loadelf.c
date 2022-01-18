@@ -5,8 +5,8 @@ loadelf.o: ../../syscall/loadelf.c ../../include/types.h \
  ../../include/uio.h ../../include/kern/iovec.h ../../include/proc.h \
  ../../include/spinlock.h includelinks/machine/spinlock.h \
  ../../include/limits.h ../../include/kern/limits.h \
- ../../include/file_syscalls.h ../../include/synch.h opt-filesys.h \
- ../../include/current.h includelinks/machine/current.h \
+ ../../include/file_syscalls.h ../../include/synch.h opt-synch.h \
+ opt-filesys.h ../../include/current.h includelinks/machine/current.h \
  ../../include/thread.h ../../include/array.h ../../include/threadlist.h \
  includelinks/machine/thread.h ../../include/setjmp.h \
  includelinks/kern/machine/setjmp.h ../../include/addrspace.h \

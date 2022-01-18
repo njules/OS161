@@ -3,11 +3,12 @@ file_syscalls.o: ../../syscall/file_syscalls.c \
  ../../include/kern/types.h includelinks/kern/machine/types.h \
  includelinks/machine/types.h ../../include/synch.h \
  ../../include/spinlock.h ../../include/cdefs.h \
- includelinks/machine/spinlock.h opt-filesys.h ../../include/kern/errno.h \
- ../../include/limits.h ../../include/kern/limits.h \
- ../../include/current.h includelinks/machine/current.h \
- ../../include/thread.h ../../include/array.h ../../include/lib.h \
- opt-noasserts.h ../../include/threadlist.h includelinks/machine/thread.h \
+ includelinks/machine/spinlock.h opt-synch.h opt-filesys.h \
+ ../../include/kern/errno.h ../../include/limits.h \
+ ../../include/kern/limits.h ../../include/current.h \
+ includelinks/machine/current.h ../../include/thread.h \
+ ../../include/array.h ../../include/lib.h opt-noasserts.h \
+ ../../include/threadlist.h includelinks/machine/thread.h \
  ../../include/setjmp.h includelinks/kern/machine/setjmp.h \
  ../../include/proc.h ../../include/kern/fcntl.h ../../include/uio.h \
  ../../include/kern/iovec.h ../../include/vnode.h ../../include/vfs.h \

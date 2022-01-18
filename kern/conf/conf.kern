@@ -381,6 +381,8 @@ defoption  filesys
 optfile	   filesys	syscall/file_syscalls.c
 
 
+defoption  synch
+optfile    synch		thread/synch.c  
 #
 # Startup and initialization
 #
