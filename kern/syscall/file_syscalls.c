@@ -215,18 +215,17 @@ int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	return 0;
 }
 
-int sys_write(int fd, userptr_t buf_ptr, size_t size, ssize_t *retval)
+int sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 {
 	struct fhandle *open_file;
 	struct iovec iov;
 	struct uio u;
 	int err;
 
-	DEBUG(DB_SYSFILE,
-		"Write syscall invoked, fd:%d, buf_ptr: %p, size: %d.\n",
-		fd, buf_ptr, size);
+	DEBUG(DB_SYSCALL,
+		"Write syscall invoked, fd:%d, buf: %p, size: %d.\n",
+		fd, buf, size);
 
-	/* check fd within bounds of p_fdtable */
 	if (fd < 0 || fd >= OPEN_MAX) {
 		DEBUG(DB_SYSFILE,
 			"Write error: File descriptor out of bounds. fd: %d.\n",
@@ -235,7 +234,7 @@ int sys_write(int fd, userptr_t buf_ptr, size_t size, ssize_t *retval)
 	}
 
 	// TODO: should we lock the process first? or just the file
-	open_file = curproc->p_fdtable[fd]; // get file handle from file table
+	open_file = curproc->p_fdtable[fd];  // get file handle from file table
 
 	if (open_file == NULL) {
 		DEBUG(DB_SYSFILE,
@@ -252,35 +251,25 @@ int sys_write(int fd, userptr_t buf_ptr, size_t size, ssize_t *retval)
 		return EBADF;
 	}
 	
-	// TODO: enable synch again
-	// lock_acquire(open_file->lock); // synchronize access to file handle during write
+	lock_acquire(open_file->lock);  // synchronize access to file handle during write
 
-	iov.iov_ubase = buf_ptr; // we set a user pointer to the buffer , change to ubase
-	iov.iov_len = size;
-	u.uio_iov = &iov;					// we set the pointer to the buffer we want to transfer
-	u.uio_iovcnt = 1;					// set quantity of buffers
-	u.uio_offset = open_file->offset;	// set offset of file
-	u.uio_resid = size;					//size of object to transfer
-	u.uio_segflg = UIO_USERSPACE;		// We set the flag to user data
-	u.uio_rw = UIO_WRITE;				// we set action to write
-	u.uio_space = curproc->p_addrspace; // we set the addres space for the user pointer
+	uio_kinit(&iov, &u, buf, size, open_file->offset, UIO_WRITE);
+	u.uio_segflg = UIO_USERSPACE;
+	u.uio_space = curproc->p_addrspace;
 
-	err = VOP_WRITE(open_file->vn, &u); // write to file, if not all the content was writtend, it returns -1
+	err = VOP_WRITE(open_file->vn, &u);
 
 	if (err) {
 		DEBUG(DB_SYSFILE,
 			"Write error: Couldn't write to uio struct. err:%d",
 			err);
-		// TODO: enable synch again
-		// lock_release(open_file->lock); // we release the lock and return result
+		lock_release(open_file->lock);
 		return err;
 	}
-	// If not all the content has been written
 
-	open_file->offset += ((off_t)size - u.uio_resid);
+	open_file->offset = u.uio_offset;
 
-	// TODO: enable synch again
-	// lock_release(open_file->lock);
+	lock_release(open_file->lock);
 
 	*retval = size - u.uio_resid; // return number of bytes read on success
 	return 0;
