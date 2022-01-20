@@ -163,59 +163,76 @@ int sys_open(userptr_t filename, int flags, int *retval)
 	return 0;
 }
 
-int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
+int
+sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 {
-
-	if (fd < 0 || fd >= OPEN_MAX)
-	{ // if fd out of bounds of fdtable
-		return EBADF;
-	}
-
+	int err;
 	struct fhandle *open_file;
-	open_file = curproc->p_fdtable[fd]; // get file handle from file table
-
-	if (open_file == NULL)
-	{
-		return EBADF;
-	}
-
-	if (!(open_file->flags & (O_RDONLY | O_RDWR)))
-	{ // if file not opened with O_RDONLY or O_RDWR flag
-		return EBADF;
-	}
-
-	lock_acquire(open_file->lock); // synchronize access to file handle during read
-
-	// set up iovec and uio structs to read data from file with VOP_READ
 	struct iovec iov;
 	struct uio u;
 
-	iov.iov_ubase = buf;
-	iov.iov_len = size;
-	u.uio_iov = &iov;
-	u.uio_iovcnt = 1;
-	u.uio_resid = size;
-	u.uio_offset = open_file->offset;
+	DEBUG(DB_SYSCALL,
+		"Read syscall invoked, fd:%d, buf: %p, size: %d.\n",
+		fd, buf, size);
+
+	// check fd is within bounds
+	if (fd < 0 || fd >= OPEN_MAX) {
+		DEBUG(DB_SYSFILE,
+			"Read error: File descriptor out of bounds. fd: %d.\n",
+			fd);
+		return EBADF;
+	}
+
+	// get file handle from file table
+	open_file = curproc->p_fdtable[fd];
+
+	// check that fd points to valid file handle
+	if (open_file == NULL) {
+		DEBUG(DB_SYSFILE,
+			"Read error: fd points to invalid p_fdtable entry. fd:%d.\n",
+			fd);
+		return EBADF;
+	}
+
+	// check that flags allow reading from file
+	if (open_file->flags & O_WRONLY) {
+		DEBUG(DB_SYSFILE,
+			"Read error: Flags do not allow file to be read from."
+			" fd:%d, flags:%X.\n",
+			fd, open_file->flags);
+		return EBADF;
+	}
+
+	// synchronize access to file handle during read
+	lock_acquire(open_file->lock);
+
+	// init iovec and uio to read from file
+	uio_kinit(&iov, &u, buf, size, open_file->offset, UIO_READ);
 	u.uio_segflg = UIO_USERSPACE;
-	u.uio_rw = UIO_READ;
 	u.uio_space = curproc->p_addrspace;
 
-	int err = VOP_READ(open_file->vn, &u); // read from file
-	if (err)
-	{
-		lock_release(open_file->lock); // release lock
+	// read from file
+	err = VOP_READ(open_file->vn, &u);
+	if (err) {
+		DEBUG(DB_SYSFILE,
+			"Read error: Couldn't read to uio struct. err:%d\n",
+			err);
+		lock_release(open_file->lock);
 		return err;
 	}
 
-	open_file->offset = u.uio_offset; // advance offset by amount read
+	// update offset
+	open_file->offset = u.uio_offset;
 
-	lock_release(open_file->lock); // release lock
+	lock_release(open_file->lock);
 
-	*retval = size - u.uio_resid; // return number of bytes read on success
+	// return number of bytes read
+	*retval = size - u.uio_resid;
 	return 0;
 }
 
-int sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
+int
+sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 {
 	struct fhandle *open_file;
 	struct iovec iov;
@@ -226,6 +243,7 @@ int sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 		"Write syscall invoked, fd:%d, buf: %p, size: %d.\n",
 		fd, buf, size);
 
+	// check fd is within bounds
 	if (fd < 0 || fd >= OPEN_MAX) {
 		DEBUG(DB_SYSFILE,
 			"Write error: File descriptor out of bounds. fd: %d.\n",
@@ -233,9 +251,10 @@ int sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 		return EBADF;
 	}
 
-	// TODO: should we lock the process first? or just the file
-	open_file = curproc->p_fdtable[fd];  // get file handle from file table
+	// get file handle from file table
+	open_file = curproc->p_fdtable[fd];
 
+	// check that fd points to valid file handle
 	if (open_file == NULL) {
 		DEBUG(DB_SYSFILE,
 			"Write error: fd points to invalid p_fdtable entry. fd:%d.\n",
@@ -243,6 +262,7 @@ int sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 		return EBADF;
 	}
 
+	// check that flags allow writing to file
 	if (!(open_file->flags & (O_WRONLY | O_RDWR))) {
 		DEBUG(DB_SYSFILE,
 			"Write error: Flags do not allow file to be written to."
@@ -251,27 +271,31 @@ int sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 		return EBADF;
 	}
 	
-	lock_acquire(open_file->lock);  // synchronize access to file handle during write
+	// synchronize access to file handle during write
+	lock_acquire(open_file->lock);
 
+	// init iovec and uio to write to file
 	uio_kinit(&iov, &u, buf, size, open_file->offset, UIO_WRITE);
 	u.uio_segflg = UIO_USERSPACE;
 	u.uio_space = curproc->p_addrspace;
 
+	// write to vnode
 	err = VOP_WRITE(open_file->vn, &u);
-
 	if (err) {
 		DEBUG(DB_SYSFILE,
-			"Write error: Couldn't write to uio struct. err:%d",
+			"Write error: Couldn't write to uio struct. err:%d\n",
 			err);
 		lock_release(open_file->lock);
 		return err;
 	}
 
+	// update offset
 	open_file->offset = u.uio_offset;
 
 	lock_release(open_file->lock);
 
-	*retval = size - u.uio_resid; // return number of bytes read on success
+	// return number of bytes read
+	*retval = size - u.uio_resid;
 	return 0;
 }
 
