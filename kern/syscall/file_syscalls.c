@@ -243,12 +243,13 @@ int sys_write(int fd, userptr_t buf_ptr, size_t size, ssize_t *retval)
 			fd);
 		return EBADF;
 	}
-
+	lock_acquire(open_file->lock);
 	if (!(open_file->flags & (O_WRONLY | O_RDWR))) {
 		DEBUG(DB_SYSFILE,
 			"Write error: Flags do not allow file to be written to."
 			" fd:%d, flags:%X.\n",
 			fd, open_file->flags);
+		lock_release(open_file->lock);
 		return EBADF;
 	}
 	
@@ -272,7 +273,7 @@ int sys_write(int fd, userptr_t buf_ptr, size_t size, ssize_t *retval)
 			"Write error: Couldn't write to uio struct. err:%d",
 			err);
 		// TODO: enable synch again
-		// lock_release(open_file->lock); // we release the lock and return result
+		lock_release(open_file->lock); // we release the lock and return result
 		return err;
 	}
 	// If not all the content has been written
@@ -280,7 +281,7 @@ int sys_write(int fd, userptr_t buf_ptr, size_t size, ssize_t *retval)
 	open_file->offset += ((off_t)size - u.uio_resid);
 
 	// TODO: enable synch again
-	// lock_release(open_file->lock);
+	lock_release(open_file->lock);
 
 	*retval = size - u.uio_resid; // return number of bytes read on success
 	return 0;
