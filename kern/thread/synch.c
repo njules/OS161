@@ -179,8 +179,8 @@ void lock_destroy(struct lock *lock)
 
 	// add stuff here as needed
 #if OPT_SYNCH
-	spinlock_cleanup(&lock->lk_lock);
 	wchan_destroy(lock->lk_wchan);
+	spinlock_cleanup(&lock->lk_lock);
 #endif
 	kfree(lock->lk_name);
 	kfree(lock);
@@ -191,7 +191,6 @@ void lock_acquire(struct lock *lock)
 
 #if OPT_SYNCH
 	KASSERT(lock != NULL); // DEBUG
-	KASSERT(!(lock_do_i_hold(lock)));
 	KASSERT(curthread->t_in_interrupt == false);
 
 	spinlock_acquire(&lock->lk_lock);
@@ -215,7 +214,10 @@ void lock_release(struct lock *lock)
 	// Write this
 #if OPT_SYNCH
 	KASSERT(lock != NULL);
-	KASSERT(lock_do_i_hold(lock));
+	KASSERT(curthread->t_in_interrupt == false);
+	KASSERT(lock->lk_owner == curthread);
+	KASSERT(lock->lk_flag == true);
+
 	spinlock_acquire(&lock->lk_lock);
 
 	lock->lk_owner = NULL;
