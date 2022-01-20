@@ -6,7 +6,7 @@
 
 Preexisting process structure.
 
-Added `p_fdtable`
+Added `p_fdtable`.
 `p_fdtable` is an array of length `OPEN_MAX`.
 It is indexed by the file descriptor `fd`, which returned after opening a file.
 `p_fdtable` stores file handles `fhandle`.
@@ -151,6 +151,9 @@ Enable file syscalls.
 ```
 optfile	   filesys	syscall/file_syscalls.c
 ```
+
+
+# Tests
 
 
 # TODOs
