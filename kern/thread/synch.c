@@ -236,11 +236,7 @@ bool lock_do_i_hold(struct lock *lock)
 {
 	// Write this
 #if OPT_SYNCH
-	bool res;
-	spinlock_acquire(&lock->lk_lock);
-	res = (lock->lk_owner == curthread && lock->lk_flag == true);
-	spinlock_release(&lock->lk_lock);
-	return res;
+	return (lock->lk_owner == curthread && lock->lk_flag == true);
 
 #endif
 
