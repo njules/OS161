@@ -14,60 +14,6 @@
 
 
 int
-create_fhandle_struct(char* path, int flags, int mode, off_t offset, struct fhandle** retval)
-{
-	struct vnode *vn;
-	int err;
-
-	// open file
-	err = vfs_open(path, flags, mode, &vn);
-	if (err) {
-		return err;
-	}
-
-	// initialize fhandle struct
-	(*retval) = kmalloc(sizeof(struct fhandle));
-	(*retval)->vn = vn;
-	(*retval)->offset = offset;
-	(*retval)->flags = flags;
-	(*retval)->ref_count = 1;
-	(*retval)->lock = lock_create(path);
-
-	return 0;
-}
-
-int
-open_console(struct fhandle *fdtable[])
-{
-	int err;
-
-	char con0[] = "con:";
-	err = create_fhandle_struct(con0, O_RDONLY, 0664, 0, &fdtable[0]);
-	if (err) {
-		return err;
-	}
-
-	char con1[] = "con:";
-	err = create_fhandle_struct(con1, O_WRONLY, 0664, 0, &fdtable[1]);
-	if (err) {
-		vfs_close(fdtable[0]->vn);
-		kfree(fdtable[0]);
-		return err;
-	}
-
-	char con2[] = "con:";
-	err = create_fhandle_struct(con2, O_WRONLY, 0664, 0, &fdtable[2]);
-	if (err) {
-		vfs_close(fdtable[0]->vn);
-		kfree(fdtable[0]);
-		vfs_close(fdtable[1]->vn);
-		kfree(fdtable[1]);
-		return err;
-	}
-	return 0;
-}
-
-int
 sys_open(userptr_t filename, int flags, int *retval)
 {
 	int fd;
@@ -119,37 +65,34 @@ sys_open(userptr_t filename, int flags, int *retval)
 		return err;
 	}
 
-	// open file
-	struct vnode *vn;
-	err = vfs_open(path, flags, 0, &vn);
+	// create fhandle struct
+	open_file = kmalloc(sizeof(struct fhandle));
+	err = create_fhandle_struct(path, flags, 0, 0, open_file);
 	if (err) {
-		DEBUG(DB_SYSFILE, "Open error: Couldn't open file.\n");
+		DEBUG(DB_SYSFILE,
+			"Open error: couldn't open file. path: %s (could be altered!),"
+			" fd: %d, err: %d.\n",
+			path, fd, err);
+		kfree(open_file);
 		return err;
 	}
 
-	// compute file offset (EOF if O_APPEND is specified, 0 else)
-	offset = 0;
+	// set offset  to EOF if O_APPEND
 	if (flags & O_APPEND) {
 		struct stat *file_stat = NULL;
-		err = VOP_STAT(vn, file_stat);
+		err = VOP_STAT(open_file->vn, file_stat);
 		if (err) {
 			DEBUG(DB_SYSFILE,
-				"Open error: Couldn't set offset. err: %d\n",
+				"Open error: Couldn't compute offset. err: %d\n",
 				err);
+			vfs_close(open_file->vn);
+			kfree(open_file);
 			return err;
 		}
-		offset = file_stat->st_size;
+		open_file->offset = file_stat->st_size;
 	}
 
-	// initialize fhandle struct
-	open_file = kmalloc(sizeof(struct fhandle));
-
-	open_file->vn = vn;
-	open_file->offset = offset;
-	open_file->flags = flags;
-	open_file->ref_count = 1;
-	open_file->lock = lock_create(path);
-
+	// TODO: lock acquired before added to file table? revise locking of fhandles!!!!!
 	lock_acquire(open_file->lock); // synchronize access to file table during open
 
 	// add file handle to fdtable
@@ -521,3 +464,73 @@ int sys_chdir(const char *pathname, int32_t *retval)
 	*retval = (int32_t)0;
 	return 0;
 }
+
+int
+create_fhandle_struct(char* path, int flags, int mode, off_t offset, struct fhandle* retval)
+{
+	struct vnode *vn;
+	int err;
+
+	// initialize fhandle struct
+	retval->vn = vn;
+	retval->offset = offset;
+	retval->flags = flags;
+	retval->ref_count = 1;
+	retval->lock = lock_create(path);
+
+	// open file
+	err = vfs_open(path, flags, mode, &vn);
+	if (err) {
+		return err;
+	}
+
+	return 0;
+}
+
+int
+open_console(struct fhandle *fdtable[])
+{
+	int err;
+
+	char con0[] = "con:";
+	fdtable[0] = kmalloc(sizeof(struct fhandle));
+	err = create_fhandle_struct(con0, O_RDONLY, 0664, 0, fdtable[0]);
+	if (err) {
+		DEBUG(DB_SYSFILE,
+			"ConsoleIO error: couldn't open stdin. err: %d.\n",
+			err);
+		kfree(fdtable[0]);
+		return err;
+	}
+
+	char con1[] = "con:";
+	fdtable[1] = kmalloc(sizeof(struct fhandle));
+	err = create_fhandle_struct(con1, O_WRONLY, 0664, 0, fdtable[1]);
+	if (err) {
+		DEBUG(DB_SYSFILE,
+			"ConsoleIO error: couldn't open stdout. err: %d.\n",
+			err);
+		vfs_close(fdtable[0]->vn);
+		kfree(fdtable[0]);
+		kfree(fdtable[1]);
+		return err;
+	}
+
+	char con2[] = "con:";
+	fdtable[2] = kmalloc(sizeof(struct fhandle));
+	err = create_fhandle_struct(con2, O_WRONLY, 0664, 0, fdtable[2]);
+	if (err) {
+		DEBUG(DB_SYSFILE,
+			"ConsoleIO error: couldn't open stderr. err: %d.\n",
+			err);
+		vfs_close(fdtable[0]->vn);
+		vfs_close(fdtable[1]->vn);
+		kfree(fdtable[0]);
+		kfree(fdtable[1]);
+		kfree(fdtable[2]);
+		return err;
+	}
+
+	return 0;
+}
+

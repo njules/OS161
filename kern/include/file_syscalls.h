@@ -29,7 +29,7 @@ int sys___getcwd(userptr_t buf, size_t buflen, int *retval);
 
 /* convenience functions */
 int create_fhandle_struct(
-	char* path, int flags, int mode, off_t offset, struct fhandle** retval
+	char* path, int flags, int mode, off_t offset, struct fhandle* retval
 );
 int open_console(struct fhandle *fdtable[]);
 
