@@ -110,7 +110,7 @@ int runprogram(char *progname)
 		return result;
 	}
 
-#if OPT_FILESYS
+#if OPT_SHELL
 	/* Open stdin, stdout and stderr */
 	DEBUG(DB_SYSFILE, "Opening console file descriptors.\n");
 	result = open_console(curproc->p_fdtable);

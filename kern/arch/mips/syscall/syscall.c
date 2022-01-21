@@ -36,6 +36,7 @@
 #include <current.h>
 #include <syscall.h>
 #include <file_syscalls.h>
+#include <copyinout.h>
 
 /*
  * System call dispatcher.
@@ -110,32 +111,24 @@ void syscall(struct trapframe *tf)
 		break;
 
 		/* Add stuff here */
-#if OPT_FILESYS
-/*
-	case SYS_read:
-		retval = sys_read((int)tf->tf_a0,
-						  (userptr_t)tf->tf_a1,
-						  (size_t)tf->tf_a2);
-		if (retval < 0)
-			err = retval;
-		else
-			err = 0;
-		break;*/
-
-	case SYS_write:
-		err = sys_write((int)tf->tf_a0,
-				(userptr_t)tf->tf_a1,
-				(size_t)tf->tf_a2,
-				&retval);
-		if (err) retval = -1;
-		break;
-/*
+#if OPT_SHELL
 	case SYS_open:
 		err = sys_open((userptr_t)tf->tf_a0,
-					   (int)tf->tf_a1,
-					   &retval);
-		if (err)
-			retval = -1;
+			       (int)tf->tf_a1,
+			       &retval);
+		if (err) retval = -1;
+		break;
+
+	case SYS_dup2:
+		err = sys_dup2((int)tf->tf_a0,
+			       (int)tf->tf_a1,
+			       &retval);
+		if (err) retval = -1;
+		break;
+
+	case SYS_close:
+		err = sys_close((int)tf->tf_a0);
+		if (err) retval = -1;
 		break;
 
 	case SYS_read:
@@ -154,22 +147,7 @@ void syscall(struct trapframe *tf)
 		if (err) retval = -1;
 		break;
 
-	case SYS_close:
-		err = sys_close((int)tf->tf_a0);
-		if (err)
-			retval = -1;
-		break;
-
-	case SYS_read:
-		err = sys_read((int)tf->tf_a0,
-					   (userptr_t)tf->tf_a1,
-					   (size_t)tf->tf_a2,
-					   &retval);
-		if (err)
-			retval = -1;
-		break;
-
-	case SYS_lseek:
+	case SYS_lseek:;
 		off_t offset = (((off_t)tf->tf_a2) << 32) | tf->tf_a3; // get 64 bit offset from a2:a3
 		int whence;
 		err = copyin((userptr_t)tf->tf_sp + 16, &whence, sizeof(whence)); // get whence from stack
@@ -195,24 +173,17 @@ void syscall(struct trapframe *tf)
 		}
 		break;
 
+	case SYS_chdir:
+		err = sys_chdir((const char *)tf->tf_a0,
+						&retval);
+		break;
+
 	case SYS___getcwd:
 		err = sys___getcwd((userptr_t)tf->tf_a1,
 				   (size_t)tf->tf_a2,
 				   &retval);
 		if (err) retval = -1;
 		break;
-
-	case SYS_dup2:
-		err = sys_dup2((int)tf->tf_a0,
-					   (int)tf->tf_a1,
-					   &retval);
-		if (err)
-			retval = -1;
-		break;
-	case SYS_chdir:
-		err = sys_chdir((const char *)tf->tf_a0,
-						&retval);
-		break;*/
 #endif
 
 	default:
