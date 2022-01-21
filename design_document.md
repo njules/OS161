@@ -155,6 +155,44 @@ optfile	   filesys	syscall/file_syscalls.c
 
 # Tests
 
+## file syscalls
+
+### open
+
+### dup2
+
+### close
+
+### read
+- sink (read from console)
+- conman (read from console + write)
+
+### write
+- palin (write to console)
+- conman (write to console + read)
+
+### lseek
+- bigseek
+
+### chdir
+
+### _getcwd
+
+### ideas
+- tictac
+- hash
+- bigfile
+- add
+- argtest
+- badcall
+- bigexec
+- crash
+- factorial
+- farm
+- faulter
+- forkbomb
+- forktest
+
 
 # TODOs
 - add stdin, stdout and stderr to fdtable (idea: initiate in first process, pass down to children via fork)
