@@ -77,28 +77,25 @@ sys_open(userptr_t filename, int flags, int *retval)
 	struct fhandle *open_file;
 
 	DEBUG(DB_SYSCALL,
-		"Open syscall invoked, filename buf: %p, flags: %d.\n",
+		"Open syscall invoked, filename buf: %p, flags: 0x%x.\n",
 		filename, flags);
 
-	// check flags are compatible with access type (r, w, rw)
-	if (flags & O_RDONLY) {
-		if (flags & !(O_RDONLY | O_CREAT | O_EXCL)) {
-			DEBUG(DB_SYSFILE, "Open error: Invalid flags. flags: %X.\n", flags);
-			return EINVAL;
-		}
-	} else if (flags & O_WRONLY) {
+	// check flags are legal combination
+	if (flags & O_WRONLY) {
 		if (flags & !(O_WRONLY | O_CREAT | O_EXCL | O_TRUNC | O_APPEND)) {
-			DEBUG(DB_SYSFILE, "Open error: Invalid flags. flags: %X.\n", flags);
+			DEBUG(DB_SYSFILE, "Open error: Invalid flags. flags: 0x%x.\n", flags);
 			return EINVAL;
 		}
 	} else if (flags & O_RDWR) {
 		if (flags & !(O_RDWR | O_CREAT | O_EXCL | O_TRUNC)) {
-			DEBUG(DB_SYSFILE, "Open error: Invalid flags. flags: %X.\n", flags);
+			DEBUG(DB_SYSFILE, "Open error: Invalid flags. flags: 0x%x.\n", flags);
 			return EINVAL;
 		}
-	} else { // if none of O_RDONLY, O_WRONLY, O_RDWR are specified
-		DEBUG(DB_SYSFILE, "Open error: Invalid flags. flags: %X.\n", flags);
-		return EINVAL;
+	} else {  // O_RDONLY
+		if (flags & !(O_RDONLY | O_CREAT | O_EXCL)) {
+			DEBUG(DB_SYSFILE, "Open error: Invalid flags. flags: 0x%x.\n", flags);
+			return EINVAL;
+		}
 	}
 
 	// find first available slot in file table
@@ -132,11 +129,13 @@ sys_open(userptr_t filename, int flags, int *retval)
 
 	// compute file offset (EOF if O_APPEND is specified, 0 else)
 	offset = 0;
-	if (flags | O_APPEND) {
+	if (flags & O_APPEND) {
 		struct stat *file_stat = NULL;
 		err = VOP_STAT(vn, file_stat);
 		if (err) {
-			DEBUG(DB_SYSFILE, "Open error: Couldn't set offset.\n");
+			DEBUG(DB_SYSFILE,
+				"Open error: Couldn't set offset. err: %d\n",
+				err);
 			return err;
 		}
 		offset = file_stat->st_size;
@@ -159,7 +158,6 @@ sys_open(userptr_t filename, int flags, int *retval)
 	lock_release(open_file->lock); // release lock
 
 	*retval = fd;
-	kprintf("returning: %X\n", *retval);
 	return 0;
 }
 
@@ -189,7 +187,7 @@ sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	// check that fd points to valid file handle
 	if (open_file == NULL) {
 		DEBUG(DB_SYSFILE,
-			"Read error: fd points to invalid p_fdtable entry. fd:%d.\n",
+			"Read error: fd points to invalid p_fdtable entry. fd: %d.\n",
 			fd);
 		return EBADF;
 	}
@@ -198,7 +196,7 @@ sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	if (open_file->flags & O_WRONLY) {
 		DEBUG(DB_SYSFILE,
 			"Read error: Flags do not allow file to be read from."
-			" fd:%d, flags:%X.\n",
+			" fd: %d, flags: 0x%x.\n",
 			fd, open_file->flags);
 		return EBADF;
 	}
@@ -215,7 +213,7 @@ sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	err = VOP_READ(open_file->vn, &u);
 	if (err) {
 		DEBUG(DB_SYSFILE,
-			"Read error: Couldn't read to uio struct. err:%d\n",
+			"Read error: Couldn't read to uio struct. err: %d\n",
 			err);
 		lock_release(open_file->lock);
 		return err;
@@ -240,7 +238,7 @@ sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	int err;
 
 	DEBUG(DB_SYSCALL,
-		"Write syscall invoked, fd:%d, buf: %p, size: %d.\n",
+		"Write syscall invoked, fd: %d, buf: %p, size: %d.\n",
 		fd, buf, size);
 
 	// check fd is within bounds
@@ -257,16 +255,16 @@ sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	// check that fd points to valid file handle
 	if (open_file == NULL) {
 		DEBUG(DB_SYSFILE,
-			"Write error: fd points to invalid p_fdtable entry. fd:%d.\n",
+			"Write error: fd points to invalid p_fdtable entry. fd: %d.\n",
 			fd);
 		return EBADF;
 	}
 
 	// check that flags allow writing to file
-	if (!(open_file->flags & (O_WRONLY | O_RDWR))) {
+	if (open_file->flags & O_RDONLY) {
 		DEBUG(DB_SYSFILE,
 			"Write error: Flags do not allow file to be written to."
-			" fd:%d, flags:%X.\n",
+			" fd: %d, flags: 0x%x.\n",
 			fd, open_file->flags);
 		return EBADF;
 	}
@@ -283,7 +281,7 @@ sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	err = VOP_WRITE(open_file->vn, &u);
 	if (err) {
 		DEBUG(DB_SYSFILE,
-			"Write error: Couldn't write to uio struct. err:%d\n",
+			"Write error: Couldn't write to uio struct. err: %d\n",
 			err);
 		lock_release(open_file->lock);
 		return err;
