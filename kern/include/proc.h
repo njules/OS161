@@ -74,13 +74,8 @@ struct proc
 	struct vnode *p_cwd; /* current working directory */
 
 	/* add more material here as needed */
-<<<<<<< HEAD
-#if OPT_FILESYS
-	struct fhandle *p_fdtable[OPEN_MAX]; // file table
-=======
 #if OPT_SHELL
-	struct fhandle *p_fdtable[OPEN_MAX];  // file table
->>>>>>> master
+	struct fhandle *p_fdtable[OPEN_MAX]; // file table
 #endif
 };
 
