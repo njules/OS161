@@ -4,8 +4,8 @@
 #ifndef _FILE_SYSCALLS_H_
 #define _FILE_SYSCALLS_H_
 
-#include "opt-filesys.h"
-#if OPT_FILESYS
+#include "opt-shell.h"
+#if OPT_SHELL
 
 /* File handle struct */
 struct fhandle

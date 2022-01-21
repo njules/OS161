@@ -82,7 +82,7 @@ proc_create(const char *name)
 	/* VFS fields */
 	proc->p_cwd = NULL;
 
-	#if OPT_FILESYS
+	#if OPT_SHELL
 	DEBUG(DB_SYSFILE, "Initializing file table\n");
 	bzero(proc->p_fdtable, OPEN_MAX*sizeof(struct fhandle*));
 	#endif

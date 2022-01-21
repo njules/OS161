@@ -164,20 +164,34 @@ optfile	   filesys	syscall/file_syscalls.c
 ### close
 
 ### read
+- sink (read from console)
+- conman (read from console + write)
 
 ### write
 - palin (write to console)
-- sink
-- conman
-- tictac
-- hash
-- bigfile
+- conman (write to console + read)
 
 ### lseek
+- bigseek
 
 ### chdir
 
 ### _getcwd
+
+### ideas
+- tictac
+- hash
+- bigfile
+- add
+- argtest
+- badcall
+- bigexec
+- crash
+- factorial
+- farm
+- faulter
+- forkbomb
+- forktest
 
 
 # TODOs
