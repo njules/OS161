@@ -93,12 +93,10 @@ sys_open(userptr_t filename, int flags, int *retval)
 	}
 
 	// TODO: lock acquired before added to file table? revise locking of fhandles!!!!!
-	lock_acquire(open_file->lock); // synchronize access to file table during open
 
 	// add file handle to fdtable
 	curproc->p_fdtable[fd] = open_file;
 
-	lock_release(open_file->lock); // release lock
 
 	*retval = fd;
 	return 0;
