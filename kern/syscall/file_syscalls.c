@@ -1,20 +1,18 @@
 #include "file_syscalls.h" // prototype for this file
 #include <kern/errno.h>	   // Errors (EBADF, EFAULT, ..)
-#include <types.h>	   // types (userptr_t, size_t, ..)
-#include <limits.h>	   // OPEN_MAX
+#include <types.h>		   // types (userptr_t, size_t, ..)
+#include <limits.h>		   // OPEN_MAX
 #include <current.h>	   // curproc
-#include <proc.h>	   // proc struct (for curproc)
+#include <proc.h>		   // proc struct (for curproc)
 #include <kern/fcntl.h>	   // open flags (O_RDONLY, O_WRONLY, ..)
-#include <uio.h>	   // for moving data (uio, iovec)
-#include <vnode.h>	   // for moving data (VOP_OPEN, VOP_READ, ..)
-#include <vfs.h>	   // for vfs functions (vfs_open, vfs_close)
+#include <uio.h>		   // for moving data (uio, iovec)
+#include <vnode.h>		   // for moving data (VOP_OPEN, VOP_READ, ..)
+#include <vfs.h>		   // for vfs functions (vfs_open, vfs_close)
 #include <copyinout.h>	   // for moving data (copyinstr)
 #include <kern/seek.h>	   // for seek constants (SEEK_SET, SEEK_CUR, ..)
 #include <kern/stat.h>	   // for getting file info via VOP_STAT (stat)
 
-
-int
-sys_open(userptr_t filename, int flags, int *retval)
+int sys_open(userptr_t filename, int flags, int *retval)
 {
 	int fd;
 	char path[PATH_MAX + 1];
@@ -23,22 +21,30 @@ sys_open(userptr_t filename, int flags, int *retval)
 	struct fhandle *open_file;
 
 	DEBUG(DB_SYSCALL,
-		"Open syscall invoked, filename buf: %p, flags: 0x%x.\n",
-		filename, flags);
+		  "Open syscall invoked, filename buf: %p, flags: 0x%x.\n",
+		  filename, flags);
 
 	// check flags are legal combination
-	if (flags & O_WRONLY) {
-		if (flags & !(O_WRONLY | O_CREAT | O_EXCL | O_TRUNC | O_APPEND)) {
+	if (flags & O_WRONLY)
+	{
+		if (flags & !(O_WRONLY | O_CREAT | O_EXCL | O_TRUNC | O_APPEND))
+		{
 			DEBUG(DB_SYSFILE, "Open error: Invalid flags. flags: 0x%x.\n", flags);
 			return EINVAL;
 		}
-	} else if (flags & O_RDWR) {
-		if (flags & !(O_RDWR | O_CREAT | O_EXCL | O_TRUNC)) {
+	}
+	else if (flags & O_RDWR)
+	{
+		if (flags & !(O_RDWR | O_CREAT | O_EXCL | O_TRUNC))
+		{
 			DEBUG(DB_SYSFILE, "Open error: Invalid flags. flags: 0x%x.\n", flags);
 			return EINVAL;
 		}
-	} else {  // O_RDONLY
-		if (flags & !(O_RDONLY | O_CREAT | O_EXCL)) {
+	}
+	else
+	{ // O_RDONLY
+		if (flags & !(O_RDONLY | O_CREAT | O_EXCL))
+		{
 			DEBUG(DB_SYSFILE, "Open error: Invalid flags. flags: 0x%x.\n", flags);
 			return EINVAL;
 		}
@@ -46,21 +52,25 @@ sys_open(userptr_t filename, int flags, int *retval)
 
 	// find first available slot in file table
 	fd = -1;
-	for (int i = 3; i < OPEN_MAX; i++) {
-		if (curproc->p_fdtable[i] == NULL) {
+	for (int i = 3; i < OPEN_MAX; i++)
+	{
+		if (curproc->p_fdtable[i] == NULL)
+		{
 			fd = i;
 			break;
 		}
 	}
 	// no slot found
-	if (fd == -1) {
+	if (fd == -1)
+	{
 		DEBUG(DB_SYSFILE, "Open error: File table full.\n");
 		return EMFILE;
 	}
 
 	// copy filename from userpointer into kernel buffer
 	int err = copyinstr(filename, path, sizeof(path) - 1, &pathlen);
-	if (err) {
+	if (err)
+	{
 		DEBUG(DB_SYSFILE, "Open error: Couldn't read filename.\n");
 		return err;
 	}
@@ -68,23 +78,26 @@ sys_open(userptr_t filename, int flags, int *retval)
 	// create fhandle struct
 	open_file = kmalloc(sizeof(struct fhandle));
 	err = create_fhandle_struct(path, flags, 0, 0, open_file);
-	if (err) {
+	if (err)
+	{
 		DEBUG(DB_SYSFILE,
-			"Open error: couldn't open file. path: %s (could be altered!),"
-			" fd: %d, err: %d.\n",
-			path, fd, err);
+			  "Open error: couldn't open file. path: %s (could be altered!),"
+			  " fd: %d, err: %d.\n",
+			  path, fd, err);
 		kfree(open_file);
 		return err;
 	}
 
 	// set offset  to EOF if O_APPEND
-	if (flags & O_APPEND) {
+	if (flags & O_APPEND)
+	{
 		struct stat *file_stat = NULL;
 		err = VOP_STAT(open_file->vn, file_stat);
-		if (err) {
+		if (err)
+		{
 			DEBUG(DB_SYSFILE,
-				"Open error: Couldn't compute offset. err: %d\n",
-				err);
+				  "Open error: Couldn't compute offset. err: %d\n",
+				  err);
 			vfs_close(open_file->vn);
 			kfree(open_file);
 			return err;
@@ -104,8 +117,7 @@ sys_open(userptr_t filename, int flags, int *retval)
 	return 0;
 }
 
-int
-sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
+int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 {
 	int err;
 	struct fhandle *open_file;
@@ -113,14 +125,15 @@ sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	struct uio u;
 
 	DEBUG(DB_SYSCALL,
-		"Read syscall invoked, fd:%d, buf: %p, size: %d.\n",
-		fd, buf, size);
+		  "Read syscall invoked, fd:%d, buf: %p, size: %d.\n",
+		  fd, buf, size);
 
 	// check fd is within bounds
-	if (fd < 0 || fd >= OPEN_MAX) {
+	if (fd < 0 || fd >= OPEN_MAX)
+	{
 		DEBUG(DB_SYSFILE,
-			"Read error: File descriptor out of bounds. fd: %d.\n",
-			fd);
+			  "Read error: File descriptor out of bounds. fd: %d.\n",
+			  fd);
 		return EBADF;
 	}
 
@@ -128,19 +141,21 @@ sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	open_file = curproc->p_fdtable[fd];
 
 	// check that fd points to valid file handle
-	if (open_file == NULL) {
+	if (open_file == NULL)
+	{
 		DEBUG(DB_SYSFILE,
-			"Read error: fd points to invalid p_fdtable entry. fd: %d.\n",
-			fd);
+			  "Read error: fd points to invalid p_fdtable entry. fd: %d.\n",
+			  fd);
 		return EBADF;
 	}
 
 	// check that flags allow reading from file
-	if (open_file->flags & O_WRONLY) {
+	if (open_file->flags & O_WRONLY)
+	{
 		DEBUG(DB_SYSFILE,
-			"Read error: Flags do not allow file to be read from."
-			" fd: %d, flags: 0x%x.\n",
-			fd, open_file->flags);
+			  "Read error: Flags do not allow file to be read from."
+			  " fd: %d, flags: 0x%x.\n",
+			  fd, open_file->flags);
 		return EBADF;
 	}
 
@@ -154,10 +169,11 @@ sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 
 	// read from file
 	err = VOP_READ(open_file->vn, &u);
-	if (err) {
+	if (err)
+	{
 		DEBUG(DB_SYSFILE,
-			"Read error: Couldn't read to uio struct. err: %d\n",
-			err);
+			  "Read error: Couldn't read to uio struct. err: %d\n",
+			  err);
 		lock_release(open_file->lock);
 		return err;
 	}
@@ -172,8 +188,7 @@ sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	return 0;
 }
 
-int
-sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
+int sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 {
 	struct fhandle *open_file;
 	struct iovec iov;
@@ -181,14 +196,15 @@ sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	int err;
 
 	DEBUG(DB_SYSCALL,
-		"Write syscall invoked, fd: %d, buf: %p, size: %d.\n",
-		fd, buf, size);
+		  "Write syscall invoked, fd: %d, buf: %p, size: %d.\n",
+		  fd, buf, size);
 
 	// check fd is within bounds
-	if (fd < 0 || fd >= OPEN_MAX) {
+	if (fd < 0 || fd >= OPEN_MAX)
+	{
 		DEBUG(DB_SYSFILE,
-			"Write error: File descriptor out of bounds. fd: %d.\n",
-			fd);
+			  "Write error: File descriptor out of bounds. fd: %d.\n",
+			  fd);
 		return EBADF;
 	}
 
@@ -196,28 +212,25 @@ sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	open_file = curproc->p_fdtable[fd];
 
 	// check that fd points to valid file handle
-	if (open_file == NULL) {
+	if (open_file == NULL)
+	{
 		DEBUG(DB_SYSFILE,
-			"Write error: fd points to invalid p_fdtable entry. fd: %d.\n",
-			fd);
+			  "Write error: fd points to invalid p_fdtable entry. fd: %d.\n",
+			  fd);
 		return EBADF;
 	}
-<<<<<<< HEAD
-	lock_acquire(open_file->lock);
-	if (!(open_file->flags & (O_WRONLY | O_RDWR))) {
-=======
 
 	// check that flags allow writing to file
-	if (open_file->flags & O_RDONLY) {
->>>>>>> master
+	if (open_file->flags & O_RDONLY)
+	{
 		DEBUG(DB_SYSFILE,
-			"Write error: Flags do not allow file to be written to."
-			" fd: %d, flags: 0x%x.\n",
-			fd, open_file->flags);
+			  "Write error: Flags do not allow file to be written to."
+			  " fd: %d, flags: 0x%x.\n",
+			  fd, open_file->flags);
 		lock_release(open_file->lock);
 		return EBADF;
 	}
-	
+
 	// synchronize access to file handle during write
 	lock_acquire(open_file->lock);
 
@@ -228,26 +241,18 @@ sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 
 	// write to vnode
 	err = VOP_WRITE(open_file->vn, &u);
-	if (err) {
+	if (err)
+	{
 		DEBUG(DB_SYSFILE,
-			"Write error: Couldn't write to uio struct. err: %d\n",
-			err);
-<<<<<<< HEAD
-		// TODO: enable synch again
-		lock_release(open_file->lock); // we release the lock and return result
-=======
+			  "Write error: Couldn't write to uio struct. err: %d\n",
+			  err);
 		lock_release(open_file->lock);
->>>>>>> master
 		return err;
 	}
 
 	// update offset
 	open_file->offset = u.uio_offset;
 
-<<<<<<< HEAD
-	// TODO: enable synch again
-=======
->>>>>>> master
 	lock_release(open_file->lock);
 
 	// return number of bytes read
@@ -480,8 +485,7 @@ int sys_chdir(const char *pathname, int32_t *retval)
 	return 0;
 }
 
-int
-create_fhandle_struct(char* path, int flags, int mode, off_t offset, struct fhandle* retval)
+int create_fhandle_struct(char *path, int flags, int mode, off_t offset, struct fhandle *retval)
 {
 	struct vnode *vn;
 	int err;
@@ -495,25 +499,26 @@ create_fhandle_struct(char* path, int flags, int mode, off_t offset, struct fhan
 
 	// open file
 	err = vfs_open(path, flags, mode, &vn);
-	if (err) {
+	if (err)
+	{
 		return err;
 	}
 
 	return 0;
 }
 
-int
-open_console(struct fhandle *fdtable[])
+int open_console(struct fhandle *fdtable[])
 {
 	int err;
 
 	char con0[] = "con:";
 	fdtable[0] = kmalloc(sizeof(struct fhandle));
 	err = create_fhandle_struct(con0, O_RDONLY, 0664, 0, fdtable[0]);
-	if (err) {
+	if (err)
+	{
 		DEBUG(DB_SYSFILE,
-			"ConsoleIO error: couldn't open stdin. err: %d.\n",
-			err);
+			  "ConsoleIO error: couldn't open stdin. err: %d.\n",
+			  err);
 		kfree(fdtable[0]);
 		return err;
 	}
@@ -521,10 +526,11 @@ open_console(struct fhandle *fdtable[])
 	char con1[] = "con:";
 	fdtable[1] = kmalloc(sizeof(struct fhandle));
 	err = create_fhandle_struct(con1, O_WRONLY, 0664, 0, fdtable[1]);
-	if (err) {
+	if (err)
+	{
 		DEBUG(DB_SYSFILE,
-			"ConsoleIO error: couldn't open stdout. err: %d.\n",
-			err);
+			  "ConsoleIO error: couldn't open stdout. err: %d.\n",
+			  err);
 		vfs_close(fdtable[0]->vn);
 		kfree(fdtable[0]);
 		kfree(fdtable[1]);
@@ -534,10 +540,11 @@ open_console(struct fhandle *fdtable[])
 	char con2[] = "con:";
 	fdtable[2] = kmalloc(sizeof(struct fhandle));
 	err = create_fhandle_struct(con2, O_WRONLY, 0664, 0, fdtable[2]);
-	if (err) {
+	if (err)
+	{
 		DEBUG(DB_SYSFILE,
-			"ConsoleIO error: couldn't open stderr. err: %d.\n",
-			err);
+			  "ConsoleIO error: couldn't open stderr. err: %d.\n",
+			  err);
 		vfs_close(fdtable[0]->vn);
 		vfs_close(fdtable[1]->vn);
 		kfree(fdtable[0]);
@@ -548,4 +555,3 @@ open_console(struct fhandle *fdtable[])
 
 	return 0;
 }
-
