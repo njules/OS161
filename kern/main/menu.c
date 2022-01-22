@@ -117,6 +117,7 @@ common_prog(int nargs, char **args)
 
 	/* Create a process for the new program to run in. */
 	proc = proc_create_runprogram(args[0] /* name */);
+	kprintf("name: %s\n",args[0]);
 	if (proc == NULL) {
 		return ENOMEM;
 	}
