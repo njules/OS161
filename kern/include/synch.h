@@ -78,7 +78,7 @@ struct lock
         // add what you need here
         // (don't forget to mark things volatile as needed)
 #if OPT_SYNCH
-        struct semaphore *lk_sem;
+        struct wchan *lk_wchan;
         struct spinlock lk_lock;
         volatile struct thread *lk_owner;
         volatile int lk_flag;
@@ -121,6 +121,10 @@ struct cv
 {
         char *cv_name;
         // add what you need here
+#if OPT_SYNCH
+        struct wchan *cv_wchan;
+        struct spinlock cv_lock;
+#endif
         // (don't forget to mark things volatile as needed)
 };
 
