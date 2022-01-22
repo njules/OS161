@@ -19,7 +19,6 @@ sys_open(userptr_t filename, int flags, int *retval)
 	int fd;
 	char path[PATH_MAX + 1];
 	size_t pathlen;
-	off_t offset;
 	struct fhandle *open_file;
 
 	DEBUG(DB_SYSCALL,
@@ -219,9 +218,12 @@ sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	uio_kinit(&iov, &u, buf, size, open_file->offset, UIO_WRITE);
 	u.uio_segflg = UIO_USERSPACE;
 	u.uio_space = curproc->p_addrspace;
+	kprintf("TODO: before bug\n");
+	kprintf("TODO: logging info. printing: \"%s\", size: %d, offset: %llx\n", (char *)buf, size, open_file->offset);
 
 	// write to vnode
 	err = VOP_WRITE(open_file->vn, &u);
+	kprintf("TODO: catching err: %d\n", err);
 	if (err) {
 		DEBUG(DB_SYSFILE,
 			"Write error: Couldn't write to uio struct. err: %d\n",
@@ -229,6 +231,7 @@ sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 		lock_release(open_file->lock);
 		return err;
 	}
+	kprintf("TODO: after bug\n");
 
 	// update offset
 	open_file->offset = u.uio_offset;
@@ -240,64 +243,91 @@ sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	return 0;
 }
 
-int sys_lseek(int fd, off_t pos, int whence, off_t *retval)
+int
+sys_lseek(int fd, off_t pos, int whence, off_t *retval)
 {
-
-	if (fd < 0 || fd >= OPEN_MAX)
-	{ // if fd out of bounds of fdtable
-		return EBADF;
-	}
-
 	struct fhandle *open_file;
-	open_file = curproc->p_fdtable[fd]; // get file handle from file table
+	off_t offset;
+	int err;
 
-	if (open_file == NULL)
-	{
+	DEBUG(DB_SYSCALL,
+		"Lseek syscall invoked, fd: %d, pos: 0x%llx, whence: 0x%x.\n",
+		fd, pos, whence);
+
+	// check fd is within bounds
+	if (fd < 0 || fd >= OPEN_MAX) {
+		DEBUG(DB_SYSFILE,
+			"Lseek error: File descriptor out of bounds. fd: %d.\n",
+			fd);
 		return EBADF;
 	}
 
-	lock_acquire(open_file->lock); // synchronize access to file handle during seek
+	// get file handle from file table
+	open_file = curproc->p_fdtable[fd];
 
-	if (!VOP_ISSEEKABLE(open_file->vn))
-	{								   // check if file allows for seeking
-		lock_release(open_file->lock); // release lock
+	// check that fd points to valid file handle
+	if (open_file == NULL) {
+		DEBUG(DB_SYSFILE,
+			"Lseek error: fd points to invalid p_fdtable entry. fd: %d.\n",
+			fd);
+		return EBADF;
+	}
+
+	// synchronize access to file handle during write
+	lock_acquire(open_file->lock);
+
+	// check that file is seekable
+	if (!VOP_ISSEEKABLE(open_file->vn)) {
+		DEBUG(DB_SYSFILE,
+			"Lseek error: File is not seekable. fd: %d.\n",
+			fd);
+		lock_release(open_file->lock);
 		return ESPIPE;
 	}
 
-	off_t offset = open_file->offset;
-
-	switch (whence)
-	{
-	case SEEK_SET:
+	// compute offset
+	offset = open_file->offset;
+	switch (whence) {
+	    case SEEK_SET:
 		offset = pos;
 		break;
-	case SEEK_CUR:
+	    case SEEK_CUR:
 		offset = offset + pos;
 		break;
-	case SEEK_END:; // empty statement for label
+	    case SEEK_END:; // empty statement for case label
 		struct stat *file_stat = NULL;
-		int err = VOP_STAT(open_file->vn, file_stat);
-		if (err)
-		{
+		err = VOP_STAT(open_file->vn, file_stat);
+		if (err) {
+			DEBUG(DB_SYSFILE,
+				"Lseek error: Couldn't get file size. fd: %d, err: %d.\n",
+				fd, err);
 			lock_release(open_file->lock); // release lock
 			return err;
 		}
 		offset = file_stat->st_size + pos;
 		break;
-	default:
+	    default:
+		DEBUG(DB_SYSFILE,
+			"Lseek error: Invalid whence parameter. fd: %d, whence: 0x%x.\n",
+			fd, whence);
+		lock_release(open_file->lock); // release lock
+		return EINVAL;
+	}
+	if (offset < 0) {
+		DEBUG(DB_SYSFILE,
+			"Seek error: Invalid seeked offset. fd: %d, pos: 0x%llx,"
+			"whence: 0x%x, resulting offset: 0x%llx.\n",
+			fd, pos, whence, offset);
 		lock_release(open_file->lock); // release lock
 		return EINVAL;
 	}
 
-	if (offset < 0)
-	{
-		lock_release(open_file->lock); // release lock
-		return EINVAL;
-	}
-
-	open_file->offset = offset; // update offset in file handle
+	// update offset
+	open_file->offset = offset;
 
 	lock_release(open_file->lock); // release lock
+
+	// return new offset
 
 	*retval = offset;
 	return 0;
