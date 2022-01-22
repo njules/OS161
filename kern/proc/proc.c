@@ -68,7 +68,6 @@ proc_create(const char *name)
 		return NULL;
 	}
 	proc->p_name = kstrdup(name);
-	kprintf(proc->p_name);
 	if (proc->p_name == NULL)
 	{
 		kfree(proc);
@@ -85,7 +84,7 @@ proc_create(const char *name)
 	proc->p_cwd = NULL;
 
 #if OPT_SHELL
-	//DEBUG(DB_SYSFILE, "Initializing file table\n");
+	DEBUG(DB_SYSFILE, "Initializing file table\n");
 	bzero(proc->p_fdtable, OPEN_MAX * sizeof(struct fhandle *));
 #endif
 

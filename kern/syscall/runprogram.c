@@ -63,7 +63,6 @@ int runprogram(char *progname)
 	kprintf("                                                     \n");
 
 	/* Open the file. */
-	kprintf("BKPOINT 1\n");
 	result = vfs_open(progname, O_RDONLY, 0, &v);
 	if (result)
 	{
@@ -74,9 +73,8 @@ int runprogram(char *progname)
 	KASSERT(proc_getas() == NULL);
 
 	/* Create a new address space. */
-	kprintf("BKPOINT 2\n");
 	as = as_create();
-	kprintf("BKPOINT 3\n");
+
 	if (as == NULL)
 	{
 		vfs_close(v);
@@ -85,13 +83,10 @@ int runprogram(char *progname)
 
 	/* Switch to it and activate it. */
 	proc_setas(as);
-	kprintf("BKPOINT 4\n");
 	as_activate();
-	kprintf("BKPOINT 5\n");
 
 	/* Load the executable. */
 	result = load_elf(v, &entrypoint);
-	kprintf("BKPOINT 6\n");
 	if (result)
 	{
 		/* p_addrspace will go away when curproc is destroyed */
@@ -114,7 +109,6 @@ int runprogram(char *progname)
 	/* Open stdin, stdout and stderr */
 	DEBUG(DB_SYSFILE, "Opening console file descriptors.\n");
 	result = open_console(curproc->p_fdtable);
-	kprintf("BKPOINT 6\n");
 	if (result)
 	{
 		return result;
