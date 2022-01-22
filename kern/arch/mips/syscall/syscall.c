@@ -190,6 +190,12 @@ void syscall(struct trapframe *tf)
 		if (err)
 			retval = -1;
 		break;
+		
+	case SYS_getpid:
+ 		err = sys_getpid(&retval);
+ 		if (err)
+ 			retval = -1;
+ 		break;
 
 #endif
 
