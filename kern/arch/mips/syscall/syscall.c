@@ -184,10 +184,6 @@ void syscall(struct trapframe *tf)
 				   &retval);
 		if (err) retval = -1;
 		break;
-	case SYS__exit:
-	        /* TODO: just avoid crash */
- 	        sys__exit((int)tf->tf_a0);
-                break;
 #endif
 
 	default:
