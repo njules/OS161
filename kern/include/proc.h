@@ -37,8 +37,11 @@
  */
 
 #include <spinlock.h>
+#include <thread.h>
+#include <machine/trapframe.h>
 #include <limits.h>
 #include <file_syscalls.h>
+#include <types.h>
 
 struct addrspace;
 struct thread;
@@ -61,6 +64,10 @@ struct vnode;
  * thread_switch needs to be able to fetch the current address space
  * without sleeping.
  */
+#if OPT_SHELL
+extern struct pidhandle *pidhandle;
+#endif
+
 struct proc
 {
 	char *p_name;			/* Name of this process */
@@ -76,8 +83,27 @@ struct proc
 	/* add more material here as needed */
 #if OPT_SHELL
 	struct fhandle *p_fdtable[OPEN_MAX]; // file table
+    pid_t pid;
+	struct array *children;
 #endif
 };
+
+#if OPT_SHELL
+struct pidhandle 
+{
+	struct lock *pid_lock;
+	struct cv *pid_cv;  /* Condition variable usde int waitpid */
+	struct proc *pid_proc[PID_MAX + 1]; /* Array of processes where pid is the index*/
+	int qty_available;
+	int next_pid;
+}:
+
+void pidhandle_boostrap(void);
+struct proc *get_proc_pid(pid_t);
+int pidhandle_add(struct proc *, int32_t *);
+int pidhandle_free_pid(pid_t);
+
+#endif
 
 /* This is the process structure for the kernel and for kernel-only threads. */
 extern struct proc *kproc;
