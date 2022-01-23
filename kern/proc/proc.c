@@ -369,10 +369,16 @@ proc_setas(struct addrspace *newas)
  	// only do this if pid lock is not already acquired, implement this
  	// TO DO
  	// If lock is not acquired, acquire it
+	if (!(lock_do_i_hold(pidhandle->pid_lock))){
+		lock_acquire(pidhandle->pid_lock);
+	}
 
  	proc = pidhandle->pid_proc[pid];
-
+	if (!(lock_do_i_hold(pidhandle->pid_lock))){
+		lock_release(pidhandle->pid_lock);
+	}
  	// release lock
+
  	return proc;
  }
 
