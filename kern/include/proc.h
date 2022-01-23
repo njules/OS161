@@ -40,7 +40,7 @@
 #include <thread.h>
 #include <machine/trapframe.h>
 #include <limits.h>
-#include <file_syscalls.h>
+#include "file_syscalls.h"
 #include <types.h>
 
 struct addrspace;
@@ -83,7 +83,7 @@ struct proc
 	/* add more material here as needed */
 #if OPT_SHELL
 	struct fhandle *p_fdtable[OPEN_MAX]; // file table
-    pid_t pid;
+    	pid_t pid;
 	struct array *children;
 #endif
 };
@@ -96,12 +96,12 @@ struct pidhandle
 	struct proc *pid_proc[PID_MAX + 1]; /* Array of processes where pid is the index*/
 	int qty_available;
 	int next_pid;
-}:
+};
 
-void pidhandle_boostrap(void);
+void pidhandle_bootstrap(void);
 struct proc *get_proc_pid(pid_t);
 int pidhandle_add(struct proc *, int32_t *);
-int pidhandle_free_pid(pid_t);
+void pidhandle_free_pid(pid_t);
 
 #endif
 

@@ -127,7 +127,9 @@ boot(void)
 	vm_bootstrap();
 	kprintf_bootstrap();
 	thread_start_cpus();
+#if OPT_SHELL
 	pidhandle_bootstrap();
+#endif
 
 	/* Default bootfs - but ignore failure, in case emu0 doesn't exist */
 	vfs_setbootfs("emu0");

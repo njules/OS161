@@ -205,6 +205,7 @@ void proc_bootstrap(void)
 	{
 		panic("proc_create for kproc failed\n");
 	}
+
 }
 
 /*
@@ -359,7 +360,8 @@ proc_setas(struct addrspace *newas)
  {
  	if (pid < PID_MIN || pid > PID_MAX)
  	{
- 		return EDOM;
+ 		//return EDOM;
+		return NULL;
  	}
 
  	struct proc *proc;
@@ -377,10 +379,11 @@ proc_setas(struct addrspace *newas)
  /* Frees a given PID from the PID handle table. */
  void pidhandle_free_pid(pid_t pid)
  {
- 	if (pid < PID_MIN || pid > PID_MAX)
- 	{
- 		return EDOM;
- 	}
+ 	//if (pid < PID_MIN || pid > PID_MAX)
+ 	//{
+ 		//return EDOM;
+  	//	return ;
+ 	//}
 
  	lock_acquire(pidhandle->pid_lock);
  	pidhandle->qty_available++;
@@ -416,10 +419,6 @@ proc_setas(struct addrspace *newas)
  	pidhandle->qty_available = 1; /* 1 space for kernel */
  	pidhandle->next_pid = PID_MIN;
 
- 	if (kproc == NULL)
- 	{
- 		return ESRCH;
- 	}
  	pid_t kpid = kproc->pid;
  	/* Set the kernel thread process into the pid structure */
  	pidhandle->pid_proc[kpid] = kproc;
@@ -442,7 +441,8 @@ proc_setas(struct addrspace *newas)
 
  	if (proc == NULL)
  	{
- 		return ESRCH;
+ 		//return ESRCH;
+		return 0;
  	}
 
  	lock_acquire(pidhandle->pid_lock);
@@ -450,7 +450,8 @@ proc_setas(struct addrspace *newas)
  	if (pidhandle->qty_available < 1)
  	{
  		lock_release(pidhandle->pid_lock);
- 		return ENPROC;
+ 		//return ENPROC;
+		return 0;
  	}
 
  	array_add(curproc->children, proc, NULL);

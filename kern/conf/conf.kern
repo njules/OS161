@@ -379,7 +379,7 @@ file      syscall/time_syscalls.c
 
 defoption  shell
 optfile	   shell	syscall/file_syscalls.c
-optfile    shell    proc/proc_syscalls.c
+optfile    shell   	syscall/proc_syscalls.c
 
 
 defoption  synch
