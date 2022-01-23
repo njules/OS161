@@ -19,7 +19,9 @@ int sys_getpid(int32_t *retval){
     lock_acquire(pidhandle->pid_lock);
 
     *retval = curproc->pid;
+    
 
     lock_release(pidhandle->pid_lock);
+    kprintf(retval);
     return 0;
 } 
