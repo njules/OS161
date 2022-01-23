@@ -220,6 +220,7 @@ sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	u.uio_space = curproc->p_addrspace;
 	kprintf("TODO: before bug\n");
 	kprintf("TODO: logging info. printing: \"%s\", size: %d, offset: %llx\n", (char *)buf, size, open_file->offset);
+	kprintf("TODO: vnode ops: %p\n", open_file->vn->vn_ops);
 
 	// write to vnode
 	err = VOP_WRITE(open_file->vn, &u);
