@@ -36,6 +36,7 @@
 #include <current.h>
 #include <syscall.h>
 #include <file_syscalls.h>
+#include <proc_syscalls.h>
 #include <copyinout.h>
 
 /*
@@ -190,6 +191,12 @@ void syscall(struct trapframe *tf)
 		if (err)
 			retval = -1;
 		break;
+		
+	case SYS_getpid:
+ 		err = sys_getpid(&retval);
+ 		if (err)
+ 			retval = -1;
+ 		break;
 
 #endif
 

@@ -48,11 +48,16 @@
 #include <current.h>
 #include <addrspace.h>
 #include <vnode.h>
+#include <limits.h>
+#include <kern/errno.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
  */
 struct proc *kproc;
+
+/* Global PID handle table */
+ struct pidhandle *pidhandle;
 
 /*
  * Create a proc structure.
@@ -84,8 +89,15 @@ proc_create(const char *name)
 	proc->p_cwd = NULL;
 
 #if OPT_SHELL
+	proc->children = array_create();
+	if (proc->children == NULL) 
+	{
+		kfree(proc);
+		return NULL;
+	}
 	DEBUG(DB_SYSFILE, "Initializing file table\n");
 	bzero(proc->p_fdtable, OPEN_MAX * sizeof(struct fhandle *));
+	proc->pid = 1; // the kernel thread is defined to be 1
 #endif
 
 	return proc;
@@ -174,6 +186,14 @@ void proc_destroy(struct proc *proc)
 		as_destroy(as);
 	}
 
+#if OPT_SHELL
+	/* PID Fields */
+	/* We empty the children array of processes */
+	int size = array_num(proc->children);
+	for (int i=0; i<size; i++){
+		array_remove(proc->children, 0);
+	}
+#endif
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
 
@@ -191,6 +211,7 @@ void proc_bootstrap(void)
 	{
 		panic("proc_create for kproc failed\n");
 	}
+
 }
 
 /*
@@ -209,7 +230,15 @@ proc_create_runprogram(const char *name)
 	{
 		return NULL;
 	}
-
+#if OPT_SHELL
+	/* PID fields */
+	//We add to proces s handle table
+	int ret = pidhandle_add(newproc, &newproc->pid);
+	if (ret){
+		kfree(newproc);
+		return NULL;
+	}
+#endif
 	/* VM fields */
 
 	newproc->p_addrspace = NULL;
@@ -328,3 +357,140 @@ proc_setas(struct addrspace *newas)
 	spinlock_release(&proc->p_lock);
 	return oldas;
 }
+
+#if OPT_SHELL
+/* Returns the process assciated with the given PID. */
+ struct proc *
+ get_proc_pid(pid_t pid)
+ {
+ 	if (pid < PID_MIN || pid > PID_MAX)
+ 	{
+ 		//return EDOM;
+		return NULL;
+ 	}
+
+ 	struct proc *proc;
+
+ 	// only do this if pid lock is not already acquired, implement this
+ 	// TO DO
+ 	// If lock is not acquired, acquire it
+	if (!(lock_do_i_hold(pidhandle->pid_lock))){
+		lock_acquire(pidhandle->pid_lock);
+	}
+
+ 	proc = pidhandle->pid_proc[pid];
+	if (!(lock_do_i_hold(pidhandle->pid_lock))){
+		lock_release(pidhandle->pid_lock);
+	}
+ 	// release lock
+
+ 	return proc;
+ }
+
+ /* Frees a given PID from the PID handle table. */
+ void pidhandle_free_pid(pid_t pid)
+ {
+ 	//if (pid < PID_MIN || pid > PID_MAX)
+ 	//{
+ 		//return EDOM;
+  	//	return ;
+ 	//}
+
+ 	lock_acquire(pidhandle->pid_lock);
+ 	pidhandle->qty_available++;
+ 	pidhandle->pid_proc[pid] = NULL;
+ 	lock_release(pidhandle->pid_lock);
+ }
+
+ /*
+  * Initializes the PID handle when the kernel starts.
+  */
+ void pidhandle_bootstrap()
+ {
+ 	/* Set up the pid handle tables */
+ 	pidhandle = kmalloc(sizeof(struct pidhandle));
+ 	if (pidhandle == NULL)
+ 	{
+ 		panic("Error initializing PID handle table.\n");
+ 	}
+
+ 	pidhandle->pid_lock = lock_create("pid");
+ 	if (pidhandle->pid_lock == NULL)
+ 	{
+ 		panic("Error initializing PID handle's lock.\n");
+ 	}
+ 	/* TO DO, IMPLEMENT CV*/
+ 	pidhandle->pid_cv = cv_create("pidhandle cv");
+ 	if (pidhandle->pid_cv == NULL)
+ 	{
+ 		panic("Error initializing PID handle's cv.\n");
+ 	}
+
+ 	/* Set the kernel thread parameters */
+ 	pidhandle->qty_available = 1; /* 1 space for kernel */
+ 	pidhandle->next_pid = PID_MIN;
+
+ 	pid_t kpid = kproc->pid;
+ 	/* Set the kernel thread process into the pid structure */
+ 	pidhandle->pid_proc[kpid] = kproc;
+ 	pidhandle->qty_available--;
+
+ 	/* Initialize the handle table */
+ 	for (int i = PID_MIN; i < PID_MAX; i++)
+ 	{
+ 		pidhandle->qty_available++;
+ 		pidhandle->pid_proc[i] = NULL;
+ 	}
+ }
+
+ /*
+  * Manages adding a new process to the parent process, it also manages the pid table with the new entry. 
+  */
+ int pidhandle_add(struct proc *proc, int32_t *retval)
+ {
+ 	int next;
+
+ 	if (proc == NULL)
+ 	{
+ 		//return ESRCH;
+		return 0;
+ 	}
+
+ 	lock_acquire(pidhandle->pid_lock);
+
+ 	if (pidhandle->qty_available < 1)
+ 	{
+ 		lock_release(pidhandle->pid_lock);
+ 		//return ENPROC;
+		return 0;
+ 	}
+	
+ 	array_add(curproc->children, proc, NULL);
+ 	next = pidhandle->next_pid;
+ 	*retval = next;
+
+ 	pidhandle->pid_proc[next] = proc;
+ 	pidhandle->qty_available--;
+	
+ 	/* Find next avaliable pid (from actual "next"), maybe implement status for processes */
+ 	if (pidhandle->qty_available > 0)
+ 	{
+ 		for (int i = next; i < PID_MAX; i++)
+ 		{
+ 			if (pidhandle->pid_proc[i] == NULL)
+ 			{
+ 				pidhandle->next_pid = i;
+ 				break;
+ 			}
+ 		}
+ 	}
+ 	else
+ 	{
+ 		pidhandle->next_pid = PID_MAX + 1;
+ 	}
+
+ 	lock_release(pidhandle->pid_lock);
+
+ 	return 0;
+ }
+#endif
