@@ -22,6 +22,5 @@ int sys_getpid(int32_t *retval){
     
 
     lock_release(pidhandle->pid_lock);
-	kprintf("I arrived here");
     return 0;
 } 
