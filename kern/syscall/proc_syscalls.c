@@ -10,17 +10,11 @@
 #include <syscall.h>
 
 #define ALIGN_POINTER 4
-#define ALIGN_STACK 8
+#define ALIGN_STACK 8  // TODO: stack padding
 
 int
 sys_execv(userptr_t program, userptr_t args)
 {
-/*	int buflen;
-	struct vnode *v;
-	struct addrspace *as;
-	vaddr_t entrypoint, stackptr;
-	userptr_t tos;
-*/
 	int err;
 	char *kprogram;
 	int buflen;
@@ -28,14 +22,27 @@ sys_execv(userptr_t program, userptr_t args)
 	char *kargs;
 	int kargslen;
 	int argsoffset;
+	struct vnode *v;
+	struct addrspace *as;
+	vaddr_t entrypoint, stackptr;
+	userptr_t uargs;
+
+	DEBUG(DB_SYSCALL,
+		  "Execv syscall invoked, program: %p, args: %p.\n",
+		  program, args);
 
 	/* copy program into kprogram */
 	buflen = strlen((char*) program)+1;
 	kprogram = kmalloc(buflen);
 	err = copyin(program, kprogram, buflen);
 	if (err) {
+		DEBUG(DB_SYSEXECV,
+			"Execv error: Couldn't copyin program name. err: %d.\n",
+			err);
 		return err;
 	}
+
+	DEBUG(DB_SYSEXECV, "Execv: got program: \"%s\".\n", kprogram);
 
 	/* compute number of arguments and allocated kargs buffer */
 	kargslen = 0;
@@ -50,17 +57,94 @@ sys_execv(userptr_t program, userptr_t args)
 		return ENOMEM;
 	}
 
+	DEBUG(DB_SYSEXECV,
+		"Execv: preparing to copyin %d args of size 0x%x total.\n",
+		argc - 1, kargslen);
+
 	/* copy args into kargs buffer */
 	argsoffset = argc * ALIGN_POINTER;
 	for (int i=0; i<argc; i++) {
-		err = copyinstr(args[i], kargs+argsoffset, kargslen-argsoffset, &buflen);
-		argsoffset = align(args
+		((char**) kargs)[i] = (char*) argsoffset;
+		err = copyinstr(
+			(userptr_t) ((char**) args)[i],
+			kargs + argsoffset,
+			kargslen - argsoffset,
+			(size_t*) &buflen);
+		argsoffset = align(argsoffset + buflen, ALIGN_POINTER);
 		if (err) {
+			DEBUG(DB_SYSEXECV,
+				"Execv error: Couldn't copyin user argument."
+				" err: %d, argidx: %d, arg: \"%s\".\n",
+				err, i, ((char**) args)[i]);
 			kfree(kprogram);
 			kfree(kargs);
 			return err;
 		}
 	}
+	((char**) kargs)[argc] = NULL;
+
+	/* open executable */
+	err = vfs_open(kprogram, O_RDONLY, 0, &v);
+	if (err) {
+		kfree(kprogram);
+		kfree(kargs);
+		return err;
+	}
+
+	/* destroy old address space and switch to new one */
+	as = proc_setas(NULL);
+	as_deactivate();
+	as_destroy(as);
+	as = as_create();
+	if (as == NULL) {  // TODO: how do I handle errors after old as has been destroyed (can't go back)
+		kfree(kprogram);
+		kfree(kargs);
+		vfs_close(v);
+		return ENOMEM;
+	}
+	proc_setas(as);
+	as_activate();
+
+	/* Load the executable. */
+	err = load_elf(v, &entrypoint);
+	if (err) {
+		kfree(kprogram);
+		kfree(kargs);
+		vfs_close(v);
+		return err;
+	}
+
+	/* Done with the file now. */
+	vfs_close(v);
+
+	/* Define the user stack in the address space */
+	err = as_define_stack(as, &stackptr);
+	if (err) {
+		kfree(kprogram);
+		kfree(kargs);
+		return err;
+	}
+
+	/* copy args onto stack in new address space */
+	uargs = (userptr_t) stackptr - kargslen;
+	err = copyout(kargs, uargs, buflen);
+	if (err) {
+		kfree(kprogram);
+		kfree(kargs);
+		return err;
+	}
+
+	kfree(kprogram);
+	kfree(kargs);
+
+	/* Warp to user mode. */
+	enter_new_process(argc /*argc*/, uargs /*userspace addr of argv*/,
+			  NULL /*userspace addr of environment*/,
+			  stackptr, entrypoint);
+
+	/* enter_new_process does not return. */
+	panic("enter_new_process returned\n");
+	return EINVAL;
 
 	/* compute number of arguments *//*
 	for (argc=0; ((char **) args)[argc]; argc++);
@@ -174,13 +258,13 @@ destroy_current_as()
 	as_deactivate();
 	as_destroy(as);
 }*/
-
+/*
 void
 free_kargs(char** argv, int n)
 {
-	/* frees memory allocated to first n elemets of kargs */
+	// frees memory allocated to first n elemets of kargs 
 	for (int i=0; i<n; i++) {
 		kfree(argv[i]);
 	}
-}
+}*/
 
