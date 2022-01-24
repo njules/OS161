@@ -433,7 +433,7 @@ proc_setas(struct addrspace *newas)
  	/* Set the kernel thread process into the pid structure */
  	pidhandle->pid_proc[kpid] = kproc;
 	pidhandle->pid_status[kpid] = RUNNING_STATUS;
-	pidhandle->pid_exitcode[kpid] = NULL;
+	pidhandle->pid_exitcode[kpid] = (int) NULL;
  	pidhandle->qty_available--;
 
  	/* Initialize the handle table */
@@ -441,8 +441,8 @@ proc_setas(struct addrspace *newas)
  	{
  		pidhandle->qty_available++;
  		pidhandle->pid_proc[i] = NULL;
-		pidhandle->pid_status[i] = NULL;
-		pidhandle->pid_exitcode[i] = NULL;
+		pidhandle->pid_status[i] = (int) NULL;
+		pidhandle->pid_exitcode[i] = (int) NULL;
  	}
  }
 
@@ -480,7 +480,7 @@ proc_setas(struct addrspace *newas)
  	{
  		for (int i = nextpid; i < PID_MAX; i++)
  		{
- 			if (pidhandle->pid_proc[i] == NULL || pidhandle->pid_status[i] == NULL)
+ 			if (pidhandle->pid_proc[i] == NULL || pidhandle->pid_status[i] == (int) NULL)
  			{
  				pidhandle->next_pid = i;
  				break;
@@ -523,8 +523,8 @@ void process_exit(struct proc *proc, int exitcode){
 			proc_destroy(child);
 			pidhandle->qty_available++;
 			pidhandle->pid_proc[childpid] = NULL;
-			pidhandle->pid_status[childpid] = NULL;
-			pidhandle->pid_exitcode[childpid] = NULL;
+			pidhandle->pid_status[childpid] = (int) NULL;
+			pidhandle->pid_exitcode[childpid] = (int) NULL;
 		}
 		else if(pidtable->pid_status[childpid] == RUNNING_STATUS){
 			pidtable->pid_status[childpid] = ORPHAN_STATUS;
@@ -543,8 +543,8 @@ void process_exit(struct proc *proc, int exitcode){
 		proc_destroy(curproc);
 		pidhandle->qty_available++;
 		pidhandle->pid_proc[pid] = NULL;
-		pidhandle->pid_status[pid] = NULL;
-		pidhandle->pid_exitcode[pid] = NULL;
+		pidhandle->pid_status[pid] = (int) NULL;
+		pidhandle->pid_exitcode[pid] = (int) NULL;
 	}
 	/* TODO: maybe not broadcast all because there's no guarantee that they are waiting on us. Improve*/
 	cv_broadcast(pidhandle->pid_cv, pidhandle->pid_lock); /* Broadcast to all waiting processes*/

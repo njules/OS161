@@ -37,7 +37,7 @@ int sys_waitpid(pid_t pid, int *retval, int options){
     }
 
     /*Only allow values for PID that are between the minimum and maximum*/
-    if (pid < PID_MIN || pid > PID_MAX || pidhandle->pid_status[pid] == NULL){
+    if (pid < PID_MIN || pid > PID_MAX || pidhandle->pid_status[pid] == (int)NULL){
         return EINVAL;
     }
 
