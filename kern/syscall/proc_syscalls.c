@@ -67,7 +67,7 @@ int sys_waitpid(pid_t pid, int *retval, int options){
 
     lock_release(pidhandle->pid_lock);
 
-    if (retval){
+    if (retval != NULL){
         /*  copyout copies LEN bytes from a kernel-space address SRC to a
  * user-space address USERDEST.*/
         int res = copyout(&exitcode, (userptr_t) retval, sizeof(int));
