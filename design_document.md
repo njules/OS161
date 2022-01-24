@@ -12,6 +12,9 @@ It is indexed by the file descriptor `fd`, which returned after opening a file.
 `p_fdtable` stores file handles `fhandle`.
 It is initialized in `static struct proc *proc_create(const char *name);` in `kern/proc/proc.c`.
 `stdin`, `stdout`, and `stderr` are opened in `int runprogram(char *progname);` and added to `p_fdtable`.
+Added `pid`
+`pid` is a pid_t type argument that represents the id of the process.
+Added `children`, which corresponds to al of the child processes.
 
 ```
 struct proc {
@@ -26,8 +29,10 @@ struct proc {
 	struct vnode *p_cwd;		/* current working directory */
 
 	/* add more material here as needed */
-#if OPT_FILESC
+#if OPT_SHELL
 	struct fhandle *p_fdtable[OPEN_MAX];  // file table
+  pid_t pid;
+	struct array *children;
 #endif
 };
 ```
@@ -48,6 +53,23 @@ struct fhandle {
 };
 ```
 
+## pdhandle 
+
+`kern/include/proc.h`
+
+PID handle structure. 
+
+```
+struct pidhandle
+{
+	struct lock *pid_lock;
+	struct cv *pid_cv;
+	struct proc *pid_proc[PID_MAX + 1];
+	int qty_available; 
+	int next_pid;
+};
+
+``` 
 
 # Methods
 
@@ -142,14 +164,55 @@ chdir syscall handler.
 int sys_chdir(const char *path, int32_t *retval);
 ```
 
-# Options
+## pidhandle_bootstrap
 
-## filesys
+`kern/proc/proc.c`
 
-Enable file syscalls.
+initialize pidhandle structure.
 
 ```
-optfile	   filesys	syscall/file_syscalls.c
+void pidhandle_bootstrap(void);
+```
+
+## get_proc_pid
+
+`kern/proc/proc.c`
+
+get process associated with pid.
+
+```
+struct proc *get_proc_pid(pid_t);
+```
+
+## pidhandle_add
+
+`kern/proc/proc.c`
+
+When a new process is added, it updates the pid table handle and updates children list.
+
+```
+int pidhandle_add(struct proc *, int32_t *);
+```
+
+## pidhandle_free_pid
+
+`kern/proc/proc.c`
+
+frees a given pid from the pid handle table
+
+```
+int pidhandle_free_pid(pid_t);
+```
+
+# Options
+
+## shell
+
+Enable file syscalls and process syscalls.
+
+```
+optfile	   shell	syscall/file_syscalls.c
+optfile	   shell	syscall/proc_syscalls.c
 ```
 
 
@@ -178,6 +241,9 @@ optfile	   filesys	syscall/file_syscalls.c
 
 ### _getcwd
 
+### getpid
+- getpidtest
+
 ### ideas
 - tictac
 - hash
@@ -192,6 +258,7 @@ optfile	   filesys	syscall/file_syscalls.c
 - faulter
 - forkbomb
 - forktest
+- chain of processes (waitpid)
 
 
 # TODOs
