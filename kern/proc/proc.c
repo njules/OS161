@@ -189,10 +189,8 @@ void proc_destroy(struct proc *proc)
 #if OPT_SHELL
 	/* PID Fields */
 	/* We empty the children array of processes */
-	int size = array_num(proc->children);
-	for (int i=0; i<size; i++){
-		array_remove(proc->children, 0);
-	}
+	array_destroy(proc->children);
+	
 #endif
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
