@@ -66,6 +66,11 @@ struct vnode;
  */
 #if OPT_SHELL
 extern struct pidhandle *pidhandle;
+
+#define RUNNING_STATUS 0 /* Running process */
+#define ZOMBIE_STATUS 1 /* A child process terminated, whose parent is running, but has not executed wait is in the zombie state*/
+#define ORPHAN_STATUS 2 /* The child does not become zombie because the system knows that no one is waiting for its exit status */
+
 #endif
 
 struct proc
@@ -83,7 +88,7 @@ struct proc
 	/* add more material here as needed */
 #if OPT_SHELL
 	struct fhandle *p_fdtable[OPEN_MAX]; // file table
-    	pid_t pid;
+    pid_t pid;
 	struct array *children;
 #endif
 };
@@ -96,6 +101,8 @@ struct pidhandle
 	struct proc *pid_proc[PID_MAX + 1]; /* Array of processes where pid is the index*/
 	int qty_available;
 	int next_pid;
+	int pid_status[PID_MAX + 1]; /* Array to maintain status of processes*/
+	int pid_exitcode[PID_MAX + 1]; /* Array to keep the exit code status*/
 };
 
 void pidhandle_bootstrap(void);

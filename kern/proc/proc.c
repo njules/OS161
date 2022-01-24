@@ -426,13 +426,14 @@ proc_setas(struct addrspace *newas)
  		panic("Error initializing PID handle's cv.\n");
  	}
 
- 	/* Set the kernel thread parameters */
  	pidhandle->qty_available = 1; /* 1 space for kernel */
  	pidhandle->next_pid = PID_MIN;
 
  	pid_t kpid = kproc->pid;
  	/* Set the kernel thread process into the pid structure */
  	pidhandle->pid_proc[kpid] = kproc;
+	pidhandle->pid_status[kpid] = RUNNING_STATUS;
+	pidhandle->pid_exitcode[kpid] = NULL;
  	pidhandle->qty_available--;
 
  	/* Initialize the handle table */
@@ -440,6 +441,8 @@ proc_setas(struct addrspace *newas)
  	{
  		pidhandle->qty_available++;
  		pidhandle->pid_proc[i] = NULL;
+		pidhandle->pid_status[i] = NULL;
+		pidhandle->pid_exitcode[i] = NULL;
  	}
  }
 
@@ -448,7 +451,7 @@ proc_setas(struct addrspace *newas)
   */
  int pidhandle_add(struct proc *proc, int32_t *retval)
  {
- 	int next;
+ 	int nextpid;
 
  	if (proc == NULL)
  	{
@@ -464,20 +467,20 @@ proc_setas(struct addrspace *newas)
  		//return ENPROC;
 		return 0;
  	}
-	
+
  	array_add(curproc->children, proc, NULL);
- 	next = pidhandle->next_pid;
+ 	nextpid = pidhandle->next_pid;
  	*retval = next;
 
- 	pidhandle->pid_proc[next] = proc;
+ 	pidhandle->pid_proc[nextpid] = proc;
  	pidhandle->qty_available--;
 	
  	/* Find next avaliable pid (from actual "next"), maybe implement status for processes */
  	if (pidhandle->qty_available > 0)
  	{
- 		for (int i = next; i < PID_MAX; i++)
+ 		for (int i = nextpid; i < PID_MAX; i++)
  		{
- 			if (pidhandle->pid_proc[i] == NULL)
+ 			if (pidhandle->pid_proc[i] == NULL || pidhandle->pid_status[i] == NULL)
  			{
  				pidhandle->next_pid = i;
  				break;
