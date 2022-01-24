@@ -106,9 +106,10 @@ struct pidhandle
 };
 
 void pidhandle_bootstrap(void);
-struct proc *get_proc_pid(pid_t);
-int pidhandle_add(struct proc *, int32_t *);
-void pidhandle_free_pid(pid_t);
+struct proc *get_proc_pid(pid_t pid);
+int pidhandle_add(struct proc *proc, int *retval);
+void pidhandle_free_pid(pid_t pid);
+void process_exit(struct proc *proc, int exitcode);
 
 #endif
 

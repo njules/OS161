@@ -449,7 +449,7 @@ proc_setas(struct addrspace *newas)
  /*
   * Manages adding a new process to the parent process, it also manages the pid table with the new entry. 
   */
- int pidhandle_add(struct proc *proc, int32_t *retval)
+ int pidhandle_add(struct proc *proc, int *retval)
  {
  	int nextpid;
 
@@ -470,7 +470,7 @@ proc_setas(struct addrspace *newas)
 
  	array_add(curproc->children, proc, NULL);
  	nextpid = pidhandle->next_pid;
- 	*retval = next;
+ 	*retval = nextpid;
 
  	pidhandle->pid_proc[nextpid] = proc;
  	pidhandle->qty_available--;
@@ -526,8 +526,8 @@ void process_exit(struct proc *proc, int exitcode){
 			pidhandle->pid_status[childpid] = (int) NULL;
 			pidhandle->pid_exitcode[childpid] = (int) NULL;
 		}
-		else if(pidtable->pid_status[childpid] == RUNNING_STATUS){
-			pidtable->pid_status[childpid] = ORPHAN_STATUS;
+		else if(pidhandle->pid_status[childpid] == RUNNING_STATUS){
+			pidhandle->pid_status[childpid] = ORPHAN_STATUS;
 		}
 		else{
 			panic("Child does not exist, I do not know how to manage.\n");
