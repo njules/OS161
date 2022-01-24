@@ -89,6 +89,12 @@ proc_create(const char *name)
 	proc->p_cwd = NULL;
 
 #if OPT_SHELL
+	proc->children = array_create();
+	if (proc->children == NULL) 
+	{
+		kfree(proc);
+		return NULL;
+	}
 	DEBUG(DB_SYSFILE, "Initializing file table\n");
 	bzero(proc->p_fdtable, OPEN_MAX * sizeof(struct fhandle *));
 	proc->pid = 1; // the kernel thread is defined to be 1
@@ -228,7 +234,6 @@ proc_create_runprogram(const char *name)
 	/* PID fields */
 	//We add to proces s handle table
 	int ret = pidhandle_add(newproc, &newproc->pid);
-	
 	if (ret){
 		kfree(newproc);
 		return NULL;
@@ -459,15 +464,14 @@ proc_setas(struct addrspace *newas)
  		//return ENPROC;
 		return 0;
  	}
-
+	
  	array_add(curproc->children, proc, NULL);
-
  	next = pidhandle->next_pid;
  	*retval = next;
 
  	pidhandle->pid_proc[next] = proc;
  	pidhandle->qty_available--;
-
+	
  	/* Find next avaliable pid (from actual "next"), maybe implement status for processes */
  	if (pidhandle->qty_available > 0)
  	{

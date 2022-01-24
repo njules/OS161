@@ -50,6 +50,6 @@ main()
 	int mypid;
 	mypid = getpid();
 	printf("My PID is: %d\n", mypid);
-	reboot(RB_REBOOT);
+	//reboot(RB_REBOOT);
 	return 0;
 }
