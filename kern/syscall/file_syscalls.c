@@ -27,7 +27,7 @@ sys_open(userptr_t filename, int flags, int *retval)
 		  filename, flags);
 
 	// check flags are legal combination
-	if (flags & O_WRONLY){
+	if (flags & O_WRONLY) {
 		if (flags & !(O_WRONLY | O_CREAT | O_EXCL | O_TRUNC | O_APPEND)) {
 			DEBUG(DB_SYSFILE, "Open error: Invalid flags. flags: 0x%x.\n", flags);
 			return EINVAL;
