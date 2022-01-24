@@ -77,3 +77,11 @@ int sys_waitpid(pid_t pid, int *retval, int options){
     }
     return 0;
 }
+
+void sys__exit(int exitcode){
+
+	process_exit(curproc, exitcode);
+	thread_exit();
+    panic("Exit syscall should never get to this point.");
+
+}

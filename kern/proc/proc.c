@@ -496,4 +496,59 @@ proc_setas(struct addrspace *newas)
 
  	return 0;
  }
+
+/* handles process exit with pidhandle*/
+void process_exit(struct proc *proc, int exitcode){
+
+	KASSERT(proc != NULL);
+	pid_t pid = proc->pid;
+	struct proc *child;
+	lock_acquire(pidhandle->pid_lock);
+
+	/* Update list of children due to exit of process, this will be manage by status*/
+	int childrennum = array_num(proc->children);
+	/* We do a for loop backwards from last children so next pid is set correctly*/
+	for(int i = childrennum; i >= 0; i--){
+
+		child = array_get(proc->children, i);
+		int childpid = child->pid;
+
+		/* If is in zombie status, we destroy the process and clean the pidhandle*/
+
+		if(pidhandle->pid_status[childpid] == ZOMBIE_STATUS){
+			/* We update next pid*/
+			if(childpid < pidhandle->next_pid){
+				pidhandle->next_pid = childpid;
+			}
+			proc_destroy(child);
+			pidhandle->qty_available++;
+			pidhandle->pid_proc[childpid] = NULL;
+			pidhandle->pid_status[childpid] = NULL;
+			pidhandle->pid_exitcode[childpid] = NULL;
+		}
+		else if(pidtable->pid_status[childpid] == RUNNING_STATUS){
+			pidtable->pid_status[childpid] = ORPHAN_STATUS;
+		}
+		else{
+			panic("Child does not exist, I do not know how to manage.\n");
+		}
+	}
+
+	if(pidhandle->pid_status[pid] == RUNNING_STATUS){
+		pidhandle->pid_status[pid] = ZOMBIE_STATUS; /* parent has not executed wait*/
+		pidhandle->pid_exitcode[pid] = exitcode;
+	} 
+	else if(pidhandle->pid_status[pid] == ORPHAN_STATUS){
+		/* destroy process and delete it from handle */
+		proc_destroy(curproc);
+		pidhandle->qty_available++;
+		pidhandle->pid_proc[pid] = NULL;
+		pidhandle->pid_status[pid] = NULL;
+		pidhandle->pid_exitcode[pid] = NULL;
+	}
+	/* TODO: maybe not broadcast all because there's no guarantee that they are waiting on us. Improve*/
+	cv_broadcast(pidhandle->pid_cv, pidhandle->pid_lock); /* Broadcast to all waiting processes*/
+	lock_release(pidhandle->pid_lock);
+
+}
 #endif

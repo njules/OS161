@@ -207,6 +207,13 @@ void syscall(struct trapframe *tf)
 			retval = -1;
 		}
 		break;
+	
+	case SYS__exit:
+		err = sys__exit(tf->tf_a0);
+		if (err){
+			retval = -1;
+		}
+		break;
 
 #endif
 
