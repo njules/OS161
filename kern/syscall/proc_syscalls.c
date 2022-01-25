@@ -50,6 +50,7 @@ sys_execv(userptr_t program, userptr_t args)
 		kargslen += align(buflen, ALIGN_POINTER);
 	}
 	kargslen += (argc + 1) * ALIGN_POINTER;
+//	kargslen = align(kargslen, ALIGN_STACK);
 	kargs = kmalloc(kargslen);
 	if (!kargs) {
 		kfree(kprogram);
@@ -143,6 +144,7 @@ sys_execv(userptr_t program, userptr_t args)
 	DEBUG(DB_SYSEXECV, "Execv: Defined stack.\n");
 
 	/* compute pointers on stack for kargs before copyout */
+	kprintf("bagging hoes, %p, %x\n", (void*) stackptr, kargslen);
 	uargs = (userptr_t) stackptr - kargslen;
 	DEBUG(DB_SYSEXECV, "Execv: uargs starts at %p\n", uargs);
 	for (int i=0; i<argc; i++) {
@@ -161,13 +163,20 @@ sys_execv(userptr_t program, userptr_t args)
 	}
 	kfree(kargs);
 
-	kprintf("uargs struct at %p, p1: %p, p2: %p, p3: %p, str1: %s, str2: %s\n",
-	uargs, ((char**) uargs)[0], ((char**) uargs)[1], ((char**) uargs)[2], ((char**) uargs)[0], ((char**) uargs)[1]);
+#if 1  // advanced debugging
+	kprintf("uargs struct at %p\n", uargs);
+	for (int i=0; i<=argc; i++) {
+		kprintf("  p%d: %p\n", i, ((char**) uargs)[i]);
+	}
+	for (int i=0; i<argc; i++) {
+		kprintf("  str%d: %s\n", i, ((char**) uargs)[i]);
+	}
+#endif
 
 	/* Warp to user mode. */
 	enter_new_process(argc /*argc*/, uargs /*userspace addr of argv*/,
 			  NULL /*userspace addr of environment*/,
-			  stackptr, entrypoint);
+			  (vaddr_t) uargs, entrypoint);
 
 	/* enter_new_process does not return. */
 	panic("enter_new_process returned\n");
