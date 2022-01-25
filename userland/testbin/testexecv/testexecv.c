@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 int main (void) {
-	printf("test");
+	printf("Hello world\n");
 /*
 	char* args[] = {"foo", "bar"};
 	printf("Should print foo bar now.");
