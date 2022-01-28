@@ -7,9 +7,13 @@
 #include "opt-shell.h"
 #if OPT_SHELL
 
-int sys_getpid(int *retval);
-int sys_waitpid(pid_t pid, int *retval, int options);
+int sys_execv(userptr_t program, userptr_t args);
 void sys__exit(int exitcode);
+int sys_waitpid(pid_t pid, int *retval, int options);
+int sys_getpid(int *retval);
+
+/* convenience functions for execv */
+int align(int pointer, int align);
 
 #endif
 #endif
