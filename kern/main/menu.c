@@ -43,6 +43,7 @@
 #include <test.h>
 #include "opt-sfs.h"
 #include "opt-net.h"
+#include <proc_syscalls.h>
 
 /*
  * In-kernel menu and command dispatcher.
@@ -135,7 +136,8 @@ common_prog(int nargs, char **args)
 	 * The new process will be destroyed when the program exits...
 	 * once you write the code for handling that.
 	 */
-
+	sys_waitpid(proc->pid, NULL, 0);
+	kprintf("I passes sys_waitpid\n");
 	return 0;
 }
 

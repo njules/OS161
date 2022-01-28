@@ -189,10 +189,8 @@ void proc_destroy(struct proc *proc)
 #if OPT_SHELL
 	/* PID Fields */
 	/* We empty the children array of processes */
-	int size = array_num(proc->children);
-	for (int i=0; i<size; i++){
-		array_remove(proc->children, 0);
-	}
+	array_destroy(proc->children);
+	
 #endif
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
@@ -426,13 +424,14 @@ proc_setas(struct addrspace *newas)
  		panic("Error initializing PID handle's cv.\n");
  	}
 
- 	/* Set the kernel thread parameters */
  	pidhandle->qty_available = 1; /* 1 space for kernel */
  	pidhandle->next_pid = PID_MIN;
 
  	pid_t kpid = kproc->pid;
  	/* Set the kernel thread process into the pid structure */
  	pidhandle->pid_proc[kpid] = kproc;
+	pidhandle->pid_status[kpid] = RUNNING_STATUS;
+	pidhandle->pid_exitcode[kpid] = (int) NULL;
  	pidhandle->qty_available--;
 
  	/* Initialize the handle table */
@@ -440,15 +439,17 @@ proc_setas(struct addrspace *newas)
  	{
  		pidhandle->qty_available++;
  		pidhandle->pid_proc[i] = NULL;
+		pidhandle->pid_status[i] = (int) NULL;
+		pidhandle->pid_exitcode[i] = (int) NULL;
  	}
  }
 
  /*
   * Manages adding a new process to the parent process, it also manages the pid table with the new entry. 
   */
- int pidhandle_add(struct proc *proc, int32_t *retval)
+ int pidhandle_add(struct proc *proc, int *retval)
  {
- 	int next;
+ 	int nextpid;
 
  	if (proc == NULL)
  	{
@@ -464,20 +465,20 @@ proc_setas(struct addrspace *newas)
  		//return ENPROC;
 		return 0;
  	}
-	
- 	array_add(curproc->children, proc, NULL);
- 	next = pidhandle->next_pid;
- 	*retval = next;
 
- 	pidhandle->pid_proc[next] = proc;
+ 	array_add(curproc->children, proc, NULL);
+ 	nextpid = pidhandle->next_pid;
+ 	*retval = nextpid;
+
+ 	pidhandle->pid_proc[nextpid] = proc;
  	pidhandle->qty_available--;
 	
  	/* Find next avaliable pid (from actual "next"), maybe implement status for processes */
  	if (pidhandle->qty_available > 0)
  	{
- 		for (int i = next; i < PID_MAX; i++)
+ 		for (int i = nextpid; i < PID_MAX; i++)
  		{
- 			if (pidhandle->pid_proc[i] == NULL)
+ 			if (pidhandle->pid_proc[i] == NULL || pidhandle->pid_status[i] == (int) NULL)
  			{
  				pidhandle->next_pid = i;
  				break;
@@ -493,4 +494,59 @@ proc_setas(struct addrspace *newas)
 
  	return 0;
  }
+
+/* handles process exit with pidhandle*/
+void process_exit(struct proc *proc, int exitcode){
+
+	KASSERT(proc != NULL);
+	pid_t pid = proc->pid;
+	struct proc *child;
+	lock_acquire(pidhandle->pid_lock);
+
+	/* Update list of children due to exit of process, this will be manage by status*/
+	int childrennum = array_num(proc->children);
+	/* We do a for loop backwards from last children so next pid is set correctly*/
+	for(int i = childrennum; i >= 0; i--){
+
+		child = array_get(proc->children, i);
+		int childpid = child->pid;
+
+		/* If is in zombie status, we destroy the process and clean the pidhandle*/
+
+		if(pidhandle->pid_status[childpid] == ZOMBIE_STATUS){
+			/* We update next pid*/
+			if(childpid < pidhandle->next_pid){
+				pidhandle->next_pid = childpid;
+			}
+			proc_destroy(child);
+			pidhandle->qty_available++;
+			pidhandle->pid_proc[childpid] = NULL;
+			pidhandle->pid_status[childpid] = (int) NULL;
+			pidhandle->pid_exitcode[childpid] = (int) NULL;
+		}
+		else if(pidhandle->pid_status[childpid] == RUNNING_STATUS){
+			pidhandle->pid_status[childpid] = ORPHAN_STATUS;
+		}
+		else{
+			panic("Child does not exist, I do not know how to manage.\n");
+		}
+	}
+
+	if(pidhandle->pid_status[pid] == RUNNING_STATUS){
+		pidhandle->pid_status[pid] = ZOMBIE_STATUS; /* parent has not executed wait*/
+		pidhandle->pid_exitcode[pid] = exitcode;
+	} 
+	else if(pidhandle->pid_status[pid] == ORPHAN_STATUS){
+		/* destroy process and delete it from handle */
+		proc_destroy(curproc);
+		pidhandle->qty_available++;
+		pidhandle->pid_proc[pid] = NULL;
+		pidhandle->pid_status[pid] = (int) NULL;
+		pidhandle->pid_exitcode[pid] = (int) NULL;
+	}
+	/* TODO: maybe not broadcast all because there's no guarantee that they are waiting on us. Improve*/
+	cv_broadcast(pidhandle->pid_cv, pidhandle->pid_lock); /* Broadcast to all waiting processes*/
+	lock_release(pidhandle->pid_lock);
+
+}
 #endif

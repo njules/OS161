@@ -7,7 +7,9 @@
 #include "opt-shell.h"
 #if OPT_SHELL
 
-int sys_getpid(int32_t *retval);
+int sys_getpid(int *retval);
+int sys_waitpid(pid_t pid, int *retval, int options);
+void sys__exit(int exitcode);
 
 #endif
 #endif
