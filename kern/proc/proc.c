@@ -507,8 +507,9 @@ void process_exit(struct proc *proc, int exitcode){
 	int childrennum = array_num(proc->children);
 	/* We do a for loop backwards from last children so next pid is set correctly*/
 	for(int i = childrennum; i >= 0; i--){
-
+		kprintf("TODO: debugging exit iter %d\n", i);
 		child = array_get(proc->children, i);
+		kprintf("TODO: debugging exit after bug\n", i);
 		int childpid = child->pid;
 
 		/* If is in zombie status, we destroy the process and clean the pidhandle*/
@@ -531,6 +532,7 @@ void process_exit(struct proc *proc, int exitcode){
 			panic("Child does not exist, I do not know how to manage.\n");
 		}
 	}
+	kprintf("TODO: debugging exit done loop\n");
 
 	if(pidhandle->pid_status[pid] == RUNNING_STATUS){
 		pidhandle->pid_status[pid] = ZOMBIE_STATUS; /* parent has not executed wait*/

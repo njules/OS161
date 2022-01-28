@@ -188,12 +188,12 @@ sys_execv(userptr_t program, userptr_t args)
 	return EINVAL;
 }
 
-void sys__exit(int exitcode){
-
+void
+sys__exit(int exitcode)
+{
 	process_exit(curproc, exitcode);
 	thread_exit();
-    panic("Exit syscall should never get to this point.");
-
+	panic("Exit syscall should never get to this point.");
 } 
 
 int sys_waitpid(pid_t pid, int *retval, int options){
