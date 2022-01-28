@@ -397,6 +397,8 @@ proc_setas(struct addrspace *newas)
  	lock_acquire(pidhandle->pid_lock);
  	pidhandle->qty_available++;
  	pidhandle->pid_proc[pid] = NULL;
+	pidhandle->pid_status[pid] = NULL;
+	pidhandle->pid_exitcode[pid] = (int) NULL;
  	lock_release(pidhandle->pid_lock);
  }
 
@@ -548,5 +550,56 @@ void process_exit(struct proc *proc, int exitcode){
 	cv_broadcast(pidhandle->pid_cv, pidhandle->pid_lock); /* Broadcast to all waiting processes*/
 	lock_release(pidhandle->pid_lock);
 
+}
+
+int handle_proc_fork(struct proc **new_proc, const char *new_name){
+	int res;
+	struct proc *proc; /* We create a temporary structure to define first*/
+
+	proc = proc_create(new_name);
+	if (proc == NULL) {
+		return ENOMEM;
+	}
+
+	res = pidhandle_add(proc, &proc->pid);
+	if (res) {
+		proc_destroy(proc);
+		return res;
+	}
+	/* We now copy all of the information of the current process into child*/
+	res = as_copy(curproc->p_addrspace, &proc->p_addrspace, proc->pid);
+	if (res) {
+		pidhandle_free_pid(proc->pid); /* we free spot used for child process*/
+		proc_destroy(proc);
+		return res;
+	}
+
+	/* We use spinlocks to protect the copy of the working directory*/
+	spinlock_acquire(&curproc->p_lock);
+	if (curproc->p_cwd != NULL) {
+		VOP_INCREF(curproc->p_cwd);
+		proc->p_cwd = curproc->p_cwd; 
+	}
+	spinlock_release(&curproc->p_lock);
+
+	struct fhandle *tmp_fhandle = curproc->p_fdtable;
+	/* We copy the filetable*/
+	for( int i = 0; i < OPEN_MAX; i++){
+		struct fhandle *fhandle_entry;
+		fhandle_entry = tmp_fhandle[i];
+
+		if (fhandle_entry == NULL) {
+			continue;
+		}
+		lock_acquire(fhandle_entry->lock);
+		fhandle_entry->ref_count ++;
+		lock_release(fhandle_entry->lock);
+
+		proc->p_fdtable[i] = fhandle_entry;
+	}
+
+	*new_proc = proc;
+
+	return 0;
 }
 #endif

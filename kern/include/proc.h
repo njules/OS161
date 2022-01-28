@@ -110,6 +110,8 @@ struct proc *get_proc_pid(pid_t pid);
 int pidhandle_add(struct proc *proc, int *retval);
 void pidhandle_free_pid(pid_t pid);
 void process_exit(struct proc *proc, int exitcode);
+/* Copies process to a new process struct */
+int handle_proc_fork(struct proc **new_proc, const char *name);
 
 #endif
 

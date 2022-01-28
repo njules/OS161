@@ -10,7 +10,9 @@
 #include <vfs.h>          
 #include <copyinout.h>    
 #include <kern/seek.h>     
-#include <kern/stat.h>     
+#include <kern/stat.h>
+#include <addrspace.h>
+    
 
 /*
 Gets PID of the current process.
@@ -25,6 +27,9 @@ int sys_getpid(int *retval){
     return 0;
 } 
 
+/* 
+Function to wait for the exit of a child process 
+*/
 int sys_waitpid(pid_t pid, int *retval, int options){
 
     struct proc *child;
@@ -77,7 +82,72 @@ int sys_waitpid(pid_t pid, int *retval, int options){
     }
     return 0;
 }
+/*
+Function that child first enters, in charge of setting trapframes
+*/
+void child_forkentry(void *data1, unsidgned long data2){
+    (void) data2;
 
+    /* We load the address space into child's thread addrespace, so we enlarge the stack*/
+    /* of a total of 16 bytes, since every trapfram is 4 bytes*/
+    void *tf = (void *) curthread->t_stack + 16;
+    memcpy(tf, (const void *) data1, sizeof(struct trapframe));
+
+    /* We activate the new address space */
+    as_activate();
+    kfree((struct trapframe *) data1);
+    /* We return to user mode */
+    mips_usermode(tf);
+    
+}
+
+/* 
+Function to fork current process and create a child 
+*/
+int sys_fork(struct trapframe *tf, int *retval ){
+
+    struct proc *new_proc; 
+    struct trapframe *new_tf;
+    int res;
+
+    res = handle_proc_fork(&new_proc, "new_child_process");
+    /* If there's an error, return error */
+    if (res) {
+        return res;
+    }
+
+    new_tf = kmalloc(sizeof(struct trapframe));
+	if (new_tf == NULL) {
+		return ENOMEM;
+	}
+    // we store the copy of the trampfram on a kernel heap and set to 0 all trapframes
+	memcpy((void *) new_tf, (const void *) tf, sizeof(struct trapframe));
+	(new_tf)->tf_v0 = 0;
+	(new_tf)->tf_v1 = 0;  /* This should only be done if retval is 64 bit, so we leave just in case*/
+	(new_tf)->tf_a3 = 0; 
+    (new_tf)->tf_epc += 4; /* This will avoid child to keep calling fork*/ 
+
+    /* We return the pid to the parent process */
+    *retval = new_proc->pid;
+    /* The two arguments that child_forkentry receives are data1 and data 2
+    but sinces fork doesn't take any arguments (more than trapframe and retval) we pass 0
+    */
+    res = thread_fork("new_child_thread", new_proc, child_forkentry, new_tf, 0);
+
+    if (res) {
+		proc_destroy(new_proc);
+		pidtable_freepid(new_proc->pid);
+		kfree(new_tf);
+		return res;
+	}
+
+    return 0;
+
+}
+
+/* 
+Exits the current process 
+*/
 void sys__exit(int exitcode){
 
 	process_exit(curproc, exitcode);
