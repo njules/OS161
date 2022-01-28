@@ -220,6 +220,10 @@ optfile	   shell	syscall/proc_syscalls.c
 
 ## file syscalls
 
+### execv
+- testexecv (calls argtest with args)
+- argtest (can be called to print passed args)
+
 ### open
 
 ### dup2
@@ -249,7 +253,6 @@ optfile	   shell	syscall/proc_syscalls.c
 - hash
 - bigfile
 - add
-- argtest
 - badcall
 - bigexec
 - crash
@@ -262,7 +265,6 @@ optfile	   shell	syscall/proc_syscalls.c
 
 
 # TODOs
-- add stdin, stdout and stderr to fdtable (idea: initiate in first process, pass down to children via fork)
 - cwd is per thread but fdtable is per process, fix inconsistency?
 - check if synchronization is done properly for file syscalls
 - check if there are problems with definition of retvals
