@@ -144,12 +144,11 @@ sys_execv(userptr_t program, userptr_t args)
 	DEBUG(DB_SYSEXECV, "Execv: Defined stack.\n");
 
 	/* compute pointers on stack for kargs before copyout */
-	kprintf("bagging hoes, %p, %x\n", (void*) stackptr, kargslen);
 	uargs = (userptr_t) stackptr - kargslen;
 	DEBUG(DB_SYSEXECV, "Execv: uargs starts at %p\n", uargs);
 	for (int i=0; i<argc; i++) {
 		DEBUG(DB_SYSEXECV,
-			"Execv:  Arg %d offset %p becomes %p\n",
+			"Execv:  Arg %d offset %p moves to %p\n",
 			i, ((char**) kargs)[i], ((char**) kargs)[i] + (int) uargs);
 		((char**) kargs)[i] = ((char**) kargs)[i] + (int) uargs;
 	}
@@ -163,7 +162,7 @@ sys_execv(userptr_t program, userptr_t args)
 	}
 	kfree(kargs);
 
-#if 1  // advanced debugging
+#if 0  // advanced debugging
 	kprintf("uargs struct at %p\n", uargs);
 	for (int i=0; i<=argc; i++) {
 		kprintf("  p%d: %p\n", i, ((char**) uargs)[i]);
