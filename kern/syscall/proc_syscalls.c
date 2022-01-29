@@ -16,7 +16,7 @@
 #include <syscall.h>  
 
 #define ALIGN_POINTER 4
-#define ALIGN_STACK 8  // TODO: stack padding
+#define ALIGN_STACK 8
 
 int
 sys_execv(userptr_t program, userptr_t args)
@@ -37,8 +37,17 @@ sys_execv(userptr_t program, userptr_t args)
 		  "Execv syscall invoked, program: %p, args: %p.\n",
 		  program, args);
 
-	/* copy program into kprogram */
-	buflen = strlen((char*) program)+1;
+	/* compute number of arguments and required space */
+	kargslen = 0;
+	for (argc=0; ((char**) args)[argc]; argc++) {
+		buflen = strlen(((char**) args)[argc]) + 1;
+		kargslen += buflen;
+	}
+	argc += 1;  // for program
+
+	/* copy program into kprogram and reserve room in kargs */
+	buflen = strlen((char*) program) + 1;
+	kargslen += buflen;
 	kprogram = kmalloc(buflen);
 	err = copyin(program, kprogram, buflen);
 	if (err) {
@@ -49,35 +58,33 @@ sys_execv(userptr_t program, userptr_t args)
 	}
 	DEBUG(DB_SYSEXECV, "Execv: Got program: \"%s\".\n", kprogram);
 
-	/* compute number of arguments and allocate kargs buffer */
-	kargslen = 0;
-	for (argc=0; ((char**) args)[argc]; argc++) {
-		buflen = strlen(((char**) args)[argc]) + 1;
-		kargslen += align(buflen, ALIGN_POINTER);
-	}
+	/* reserve room for pointers, align and allocate */
+	kargslen = align(kargslen, ALIGN_POINTER);
 	kargslen += (argc + 1) * ALIGN_POINTER;
-//	kargslen = align(kargslen, ALIGN_STACK);
+	kargslen = align(kargslen, ALIGN_STACK);
 	kargs = kmalloc(kargslen);
 	if (!kargs) {
 		kfree(kprogram);
 		return ENOMEM;
 	}
 	DEBUG(DB_SYSEXECV,
-		"Execv: Allocated 0x%x bytes for pointers.\n",
-		(argc + 1) * ALIGN_POINTER);
-	DEBUG(DB_SYSEXECV,
 		"Execv: Preparing to copyin %d args into kargs buffer of size 0x%x.\n",
 		argc, kargslen);
 
-	/* copy args into kargs buffer */
+	/* copy kprogram into kargs buffer */
 	argsoffset = (argc + 1) * ALIGN_POINTER;
-	for (int i=0; i<argc; i++) {
+	((char**) kargs)[0] = (char*) argsoffset;
+	strcpy(kargs + argsoffset, kprogram);
+	argsoffset += strlen(kprogram) + 1;
+
+	/* copy args into kargs buffer */
+	for (int i=1; i<argc; i++) {
 		((char**) kargs)[i] = (char*) argsoffset;
 		DEBUG(DB_SYSEXECV,
 			"Execv:  Copying arg %d into offset %p\n",
 			i, (char*) argsoffset);
 		err = copyinstr(
-			(userptr_t) ((char**) args)[i],
+			(userptr_t) ((char**) args)[i-1],
 			kargs + argsoffset,
 			kargslen - argsoffset,
 			(size_t*) &buflen);
@@ -85,16 +92,16 @@ sys_execv(userptr_t program, userptr_t args)
 			DEBUG(DB_SYSEXECV,
 				"Execv error: Couldn't copyin user argument."
 				" err: %d, argidx: %d, arg: \"%s\".\n",
-				err, i, ((char**) args)[i]);
+				err, i-1, ((char**) args)[i-1]);
 			kfree(kprogram);
 			kfree(kargs);
 			return err;
 		}
-		DEBUG(DB_SYSEXECV, "Execv:  Copied arg %d: %s\n", i, (char*) kargs + argsoffset);
-		argsoffset = align(argsoffset + buflen, ALIGN_POINTER);
+		DEBUG(DB_SYSEXECV, "Execv:  Copied arg %d: %s\n", i-1, (char*) kargs + argsoffset);
+		argsoffset += buflen;
 	}
 	((char**) kargs)[argc] = NULL;
-	DEBUG(DB_SYSEXECV, "Execv: Copied %d args into kernel buffer.\n", argc);
+	DEBUG(DB_SYSEXECV, "Execv: Copied %d args into kernel buffer.\n", argc-1);
 
 	/* open executable */
 	err = vfs_open(kprogram, O_RDONLY, 0, &v);
@@ -114,7 +121,7 @@ sys_execv(userptr_t program, userptr_t args)
 	as_deactivate();
 	as_destroy(as);
 	as = as_create();
-	if (as == NULL) {  // TODO: how do I handle errors after old as has been destroyed (can't go back)
+	if (as == NULL) {
 		DEBUG(DB_SYSEXECV,
 			"Execv error: Couldn't create new address space.\n");
 		kfree(kargs);

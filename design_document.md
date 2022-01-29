@@ -288,4 +288,3 @@ optfile	   shell	syscall/proc_syscalls.c
   - execv
   - waitpid
   - exit
-  - exit

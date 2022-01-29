@@ -13,6 +13,7 @@ main()
 	char badlseek[] = "j";
 	char badchdir[] = "s";
 	char baddup2[] = "w";
-	char* badcalls[] = {"a", NULL};
+	char bad__getcwd[] = "z";
+	char* badcalls[] = {badexecv, NULL};
 	execv("testbin/badcall", badcalls);
 }
