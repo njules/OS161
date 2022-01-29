@@ -218,50 +218,70 @@ optfile	   shell	syscall/proc_syscalls.c
 
 # Tests
 
-## file syscalls
+### fork
+- forktest (forks several times)
+- TODO: enough?
 
 ### execv
 - testexecv (calls argtest with args)
 - argtest (can be called to print passed args)
 
+### exit
+- called after every program
+- TODO: test exitcodes?
+
+### waitpid
+- forktest (waits for all forked processes to end)
+- TODO: enough?
+
+### getpid
+- getpidtest
+- forktest (verify fork returned pid)
+- TODO: enough?
+
 ### open
+- sink, conman, palin (console IO)
+- bigseek (open file)
 
 ### dup2
+- TODO: test with close?
 
 ### close
+- TODO: test with dup2?
 
 ### read
 - sink (read from console)
 - conman (read from console + write)
+- bigseek(read from file)
 
 ### write
 - palin (write to console)
 - conman (write to console + read)
+- bigseek(write to file)
 
 ### lseek
-- bigseek
+- bigseek (seeks various positions in file, also large (signed vs unsigned) and longs)
 
 ### chdir
+- TODO: simple with getcwd
 
 ### _getcwd
+- TODO: simple with chdir
 
-### getpid
-- getpidtest
+### all
+- badcall (test invalid parameters for all syscalls)
+- randcall (calls syscalls with random (invalid) parameters)
 
 ### ideas
-- tictac
-- hash
 - bigfile
-- add
-- badcall
 - bigexec
 - crash
 - factorial
 - farm
-- faulter
+- faulter (no panic on invalid pointer cast) TODO: where?
 - forkbomb
-- forktest
 - chain of processes (waitpid)
+- kitchen
 
 
 # TODOs
