@@ -7,9 +7,9 @@ int
 main()
 {
 	char cwd[PATH_MAX+1];
-	char testfolder[] = "/testbin/";
+	char testfolder[] = "testbin/";
 	int err;
-
+	
 	getcwd(cwd, PATH_MAX+1);
 	printf("Current working directory: \"%s\"\n", cwd);
 

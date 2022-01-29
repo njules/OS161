@@ -309,33 +309,6 @@ int sys_lseek(int fd, off_t pos, int whence, off_t *retval)
 }
 
 int
-sys___getcwd(userptr_t buf, size_t buflen, int *retval)
-{
-	// set up iovec and uio structs to copy cwd
-	struct iovec iov;
-	struct uio u;
-
-	DEBUG(DB_SYSCALL,
-		  "Getcwd syscall invoked, buf: %p, size: %d.\n",
-		  buf, buflen);
-
-	uio_kinit(&iov, &u, buf, buflen, 0, UIO_READ);
-	u.uio_segflg = UIO_USERSPACE;
-	u.uio_space = curproc->p_addrspace;
-
-	int err = vfs_getcwd(&u);
-	if (err) {
-		DEBUG(DB_SYSFILE,
-			  "Getcwd error: Couldn't read cwd. err: %d\n",
-			  err);
-		return err;
-	}
-
-	*retval = 0; // on success return 0
-	return 0;
-}
-
-int
 sys_chdir(userptr_t pathname, int32_t *retval)
 {
 	char *kpath;
@@ -367,6 +340,33 @@ sys_chdir(userptr_t pathname, int32_t *retval)
 	}
 	
 	*retval = 0;
+	return 0;
+}
+
+int
+sys___getcwd(userptr_t buf, size_t buflen, int *retval)
+{
+	// set up iovec and uio structs to copy cwd
+	struct iovec iov;
+	struct uio u;
+
+	DEBUG(DB_SYSCALL,
+		  "Getcwd syscall invoked, buf: %p, size: %d.\n",
+		  buf, buflen);
+
+	uio_kinit(&iov, &u, buf, buflen, 0, UIO_READ);
+	u.uio_segflg = UIO_USERSPACE;
+	u.uio_space = curproc->p_addrspace;
+
+	int err = vfs_getcwd(&u);
+	if (err) {
+		DEBUG(DB_SYSFILE,
+			  "Getcwd error: Couldn't read cwd. err: %d\n",
+			  err);
+		return err;
+	}
+
+	*retval = 0; // on success return 0
 	return 0;
 }
 
