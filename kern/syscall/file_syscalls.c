@@ -324,8 +324,10 @@ sys___getcwd(userptr_t buf, size_t buflen, int *retval)
 	u.uio_space = curproc->p_addrspace;
 
 	int err = vfs_getcwd(&u);
-	if (err)
-	{
+	if (err) {
+		DEBUG(DB_SYSFILE,
+			  "Getcwd error: Couldn't read cwd. err: %d\n",
+			  err);
 		return err;
 	}
 
@@ -346,12 +348,20 @@ sys_chdir(userptr_t pathname, int32_t *retval)
 	kpath = kmalloc(PATH_MAX);
 	int err = copyinstr(pathname, kpath, PATH_MAX, &pathlen);
 	if (err) {
+		DEBUG(DB_SYSFILE,
+			  "Chdir error: Couldn't read pathname. err: %d\n",
+			  err);
 		kfree(kpath);
 		return err;
 	}
 
+	DEBUG(DB_SYSFILE, "Changing dir to: %s\n", kpath);
+
 	err = vfs_chdir(kpath);
 	if (err) {
+		DEBUG(DB_SYSFILE,
+			  "Chdir error: Couldn't change directory. err: %d\n",
+			  err);
 		kfree(kpath);
 		return err;
 	}

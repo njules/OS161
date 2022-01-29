@@ -263,10 +263,10 @@ optfile	   shell	syscall/proc_syscalls.c
 - bigseek (seeks various positions in file, also large (signed vs unsigned) and longs)
 
 ### chdir
-- TODO: simple with getcwd
+- testwdir (changes and reads dir)
 
 ### _getcwd
-- TODO: simple with chdir
+- testwdir (changes and reads dir)
 
 ### all
 - badcall (test invalid parameters for all syscalls)
