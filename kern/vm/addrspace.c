@@ -70,7 +70,15 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	/*
 	 * Write this.
 	 */
-
+#if OPT_SHELL
+	newas->as_vbase1 = old->as_vbase1;
+	newas->as_npages1 = old->as_npages1;
+	newas->as_pbase1 = old->as_pbase1;
+	newas->as_vbase2 = old->as_vbase2;
+	newas->as_npages2 = old->as_npages2;
+	newas->as_pbase2 = old->as_pbase2;
+	newas->as_stackpbase = old->as_stackpbase;
+#endif OPT_SHELL
 	(void)old;
 
 	*ret = newas;
