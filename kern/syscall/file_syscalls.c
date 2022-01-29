@@ -114,8 +114,7 @@ int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 		  fd, buf, size);
 
 	// check fd is within bounds
-	if (fd < 0 || fd >= OPEN_MAX)
-	{
+	if (fd < 0 || fd >= OPEN_MAX) {
 		DEBUG(DB_SYSFILE,
 			  "Read error: File descriptor out of bounds. fd: %d.\n",
 			  fd);
@@ -126,8 +125,7 @@ int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	open_file = curproc->p_fdtable[fd];
 
 	// check that fd points to valid file handle
-	if (open_file == NULL)
-	{
+	if (open_file == NULL) {
 		DEBUG(DB_SYSFILE,
 			  "Read error: fd points to invalid p_fdtable entry. fd: %d.\n",
 			  fd);
@@ -135,8 +133,7 @@ int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	}
 
 	// check that flags allow reading from file
-	if (open_file->flags & O_WRONLY)
-	{
+	if (open_file->flags & O_WRONLY) {
 		DEBUG(DB_SYSFILE,
 			  "Read error: Flags do not allow file to be read from."
 			  " fd: %d, flags: 0x%x.\n",
@@ -154,8 +151,7 @@ int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 
 	// read from file
 	err = VOP_READ(open_file->vn, &u);
-	if (err)
-	{
+	if (err) {
 		DEBUG(DB_SYSFILE,
 			  "Read error: Couldn't read to uio struct. err: %d\n",
 			  err);
@@ -173,7 +169,8 @@ int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	return 0;
 }
 
-int sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
+int
+sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 {
 	struct fhandle *open_file;
 	struct iovec iov;
