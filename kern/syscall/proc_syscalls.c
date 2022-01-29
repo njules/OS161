@@ -188,6 +188,46 @@ sys_execv(userptr_t program, userptr_t args)
 	return EINVAL;
 }
 
+int
+copy_args_to_stack(int argc, char** argv, userptr_t* stackptr)
+{
+	kprintf("length: %d, message: \"%s\"\n", argc, argv[0]);
+	int arglen;
+	userptr_t stackargs[argc+1];
+	int err;
+
+	for (int i=0; i<argc; i++) {
+		arglen = strlen(argv[i]) + 1;
+		*stackptr -= arglen;
+		stackargs[i] = *stackptr;
+		err = copyout(argv[i], stackargs[i], arglen);
+		if (err) {
+			return err;
+		}
+	}
+
+	stackargs[argc] = NULL;
+	*stackptr -= ((int) *stackptr) % sizeof(userptr_t);  // align pointers
+	arglen = (argc + 1) * sizeof(userptr_t);
+	*stackptr -= arglen;
+	*stackptr -= ((int) *stackptr) % 8;  // align stack
+
+	err = copyout(&argv, *stackptr, arglen);
+	if (err) {
+		return err;
+	}
+
+	kprintf("uargs struct at %p\n", *stackptr);
+	for (int i=0; i<=argc; i++) {
+		kprintf("  p%d: %p\n", i, ((char**) stackargs)[i]);
+	}
+	for (int i=0; i<argc; i++) {
+		kprintf("  str%d: %s\n", i, ((char**) stackargs)[i]);
+	}
+
+	return 0;
+}
+
 void sys__exit(int exitcode){
 
 	process_exit(curproc, exitcode);

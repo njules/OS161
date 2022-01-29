@@ -14,6 +14,7 @@ int sys_getpid(int *retval);
 
 /* convenience functions for execv */
 int align(int pointer, int align);
+int copy_args_to_stack(int argc, char** argv, userptr_t* stackptr);
 
 #endif
 #endif

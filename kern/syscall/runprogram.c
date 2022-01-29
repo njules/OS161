@@ -45,6 +45,7 @@
 #include <syscall.h>
 #include <test.h>
 #include <file_syscalls.h> // to open stdin, stdout and stderr
+#include <proc_syscalls.h>
 
 /*
  * Load program "progname" and start running it in usermode.
@@ -52,12 +53,13 @@
  *
  * Calls vfs_open on progname and thus may destroy it.
  */
-int runprogram(char *progname)
+int runprogram(char *progname, unsigned long nargs, char** args)
 {
 	struct addrspace *as;
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
 	int result;
+	kprintf("TODO rprg: %ld, \"%s\"\n", nargs, *args);
 
 	// TODO: why output scrambled?
 	kprintf("                                                     \n");
@@ -113,12 +115,20 @@ int runprogram(char *progname)
 	{
 		return result;
 	}
-#endif
 
+	/**/
+	result = copy_args_to_stack(nargs, args, (userptr_t*) &stackptr);
+
+	/* Warp to user mode. */
+	enter_new_process(0 /*argc*/, (userptr_t) stackptr /*userspace addr of argv*/,
+					  NULL /*userspace addr of environment*/,
+					  stackptr, entrypoint);
+#else
 	/* Warp to user mode. */
 	enter_new_process(0 /*argc*/, NULL /*userspace addr of argv*/,
 					  NULL /*userspace addr of environment*/,
 					  stackptr, entrypoint);
+#endif
 
 	/* enter_new_process does not return. */
 	panic("enter_new_process returned\n");

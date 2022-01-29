@@ -72,22 +72,27 @@ static
 void
 cmd_progthread(void *ptr, unsigned long nargs)
 {
+	kprintf("                          TODO tidosodfos: %ld, \"%s\"\n", nargs, *((char**) ptr));
 	char **args = ptr;
 	char progname[128];
 	int result;
+	kprintf("                                                TODO befbef: %ld, \"%s\"\n", nargs, *args);
 
-	KASSERT(nargs >= 1);
+//	KASSERT(nargs >= 1);
 
-	if (nargs > 2) {
-		kprintf("Warning: argument passing from menu not supported\n");
-	}
+//	if (nargs > 2) {
+//		kprintf("Warning: argument passing from menu not supported\n");
+//	}
 
+	kprintf("                          TODO bef500: %ld, \"%s\"\n", nargs, *args);
 	/* Hope we fit. */
 	KASSERT(strlen(args[0]) < sizeof(progname));
 
 	strcpy(progname, args[0]);
 
-	result = runprogram(progname);
+//	result = runprogram(progname);
+	result = runprogram(progname, nargs, args);
+
 	if (result) {
 		kprintf("Running program %s failed: %s\n", args[0],
 			strerror(result));
@@ -122,6 +127,7 @@ common_prog(int nargs, char **args)
 		return ENOMEM;
 	}
 
+	kprintf("                  TODO noooo2: %d, \"%s\"\n", nargs, args[0]);
 	result = thread_fork(args[0] /* thread name */,
 			proc /* new process */,
 			cmd_progthread /* thread function */,
