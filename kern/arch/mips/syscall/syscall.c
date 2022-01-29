@@ -38,6 +38,7 @@
 #include <file_syscalls.h>
 #include <proc_syscalls.h>
 #include <copyinout.h>
+#include <kern/wait.h>
 
 /*
  * System call dispatcher.
@@ -215,8 +216,9 @@ void syscall(struct trapframe *tf)
 		}
 		break;
 		
-	case SYS__exit:
-		sys__exit(tf->tf_a0);
+	case SYS__exit: ;
+		int exitcode = (int) _MKWAIT_EXIT(tf->tf_a0);
+		sys__exit(exitcode);
 		break;
 
 #endif

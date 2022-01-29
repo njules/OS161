@@ -49,9 +49,9 @@ int sys_waitpid(pid_t pid, int *retval, int options){
     /*Check if actual pid is child of the current process */
     child = pidhandle->pid_proc[pid];
     childrennum = array_num(curproc->children);
+	kprintf("this is the quantity of children: %d", childrennum);
     for(int i = 0; i< childrennum; i++){
-        struct proc *tmpChild = array_get(curproc->children, i);
-        if (child == tmpChild){
+        if (child == array_get(curproc->children, i)){
             isachild = true;
             break;
         }
@@ -85,7 +85,7 @@ int sys_waitpid(pid_t pid, int *retval, int options){
 /*
 Function that child first enters, in charge of setting trapframes
 */
-void child_forkentry(void *data1, unsidgned long data2){
+void child_forkentry(void *data1, unsigned long data2){
     (void) data2;
 
     /* We load the address space into child's thread addrespace, so we enlarge the stack*/
@@ -118,6 +118,7 @@ int sys_fork(struct trapframe *tf, int *retval ){
 
     new_tf = kmalloc(sizeof(struct trapframe));
 	if (new_tf == NULL) {
+		kprintf("No more trapfame space :( \n");
 		return ENOMEM;
 	}
     // we store the copy of the trampfram on a kernel heap and set to 0 all trapframes
@@ -136,7 +137,7 @@ int sys_fork(struct trapframe *tf, int *retval ){
 
     if (res) {
 		proc_destroy(new_proc);
-		pidtable_freepid(new_proc->pid);
+		pidhandle_free_pid(new_proc->pid);
 		kfree(new_tf);
 		return res;
 	}

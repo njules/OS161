@@ -397,7 +397,7 @@ proc_setas(struct addrspace *newas)
  	lock_acquire(pidhandle->pid_lock);
  	pidhandle->qty_available++;
  	pidhandle->pid_proc[pid] = NULL;
-	pidhandle->pid_status[pid] = NULL;
+	pidhandle->pid_status[pid] = (int) NULL;
 	pidhandle->pid_exitcode[pid] = (int) NULL;
  	lock_release(pidhandle->pid_lock);
  }
@@ -473,6 +473,8 @@ proc_setas(struct addrspace *newas)
  	*retval = nextpid;
 
  	pidhandle->pid_proc[nextpid] = proc;
+	pidhandle->pid_status[nextpid] = RUNNING_STATUS;
+	pidhandle->pid_exitcode[nextpid] = (int) NULL;
  	pidhandle->qty_available--;
 	
  	/* Find next avaliable pid (from actual "next"), maybe implement status for processes */
@@ -508,7 +510,7 @@ void process_exit(struct proc *proc, int exitcode){
 	/* Update list of children due to exit of process, this will be manage by status*/
 	int childrennum = array_num(proc->children);
 	/* We do a for loop backwards from last children so next pid is set correctly*/
-	for(int i = childrennum; i >= 0; i--){
+	for(int i = childrennum -1; i >= 0; i--){
 
 		child = array_get(proc->children, i);
 		int childpid = child->pid;
@@ -567,7 +569,7 @@ int handle_proc_fork(struct proc **new_proc, const char *new_name){
 		return res;
 	}
 	/* We now copy all of the information of the current process into child*/
-	res = as_copy(curproc->p_addrspace, &proc->p_addrspace, proc->pid);
+	res = as_copy(curproc->p_addrspace, &proc->p_addrspace);
 	if (res) {
 		pidhandle_free_pid(proc->pid); /* we free spot used for child process*/
 		proc_destroy(proc);
@@ -581,12 +583,12 @@ int handle_proc_fork(struct proc **new_proc, const char *new_name){
 		proc->p_cwd = curproc->p_cwd; 
 	}
 	spinlock_release(&curproc->p_lock);
-
-	struct fhandle *tmp_fhandle = curproc->p_fdtable;
+	
+	
 	/* We copy the filetable*/
 	for( int i = 0; i < OPEN_MAX; i++){
 		struct fhandle *fhandle_entry;
-		fhandle_entry = tmp_fhandle[i];
+		fhandle_entry = curproc->p_fdtable[i];
 
 		if (fhandle_entry == NULL) {
 			continue;
