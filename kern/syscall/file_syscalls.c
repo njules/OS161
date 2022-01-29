@@ -308,21 +308,19 @@ int sys_lseek(int fd, off_t pos, int whence, off_t *retval)
 	return 0;
 }
 
-int sys___getcwd(userptr_t buf, size_t buflen, int *retval)
+int
+sys___getcwd(userptr_t buf, size_t buflen, int *retval)
 {
-
 	// set up iovec and uio structs to copy cwd
 	struct iovec iov;
 	struct uio u;
 
-	iov.iov_ubase = buf;
-	iov.iov_len = buflen;
-	u.uio_iov = &iov;
-	u.uio_iovcnt = 1;
-	u.uio_resid = buflen;
-	u.uio_offset = 0;
+	DEBUG(DB_SYSCALL,
+		  "Getcwd syscall invoked, buf: %p, size: %d.\n",
+		  buf, buflen);
+
+	uio_kinit(&iov, &u, buf, buflen, 0, UIO_READ);
 	u.uio_segflg = UIO_USERSPACE;
-	u.uio_rw = UIO_READ;
 	u.uio_space = curproc->p_addrspace;
 
 	int err = vfs_getcwd(&u);
@@ -332,6 +330,33 @@ int sys___getcwd(userptr_t buf, size_t buflen, int *retval)
 	}
 
 	*retval = 0; // on success return 0
+	return 0;
+}
+
+int
+sys_chdir(userptr_t pathname, int32_t *retval)
+{
+	char *kpath;
+	size_t pathlen;
+
+	DEBUG(DB_SYSCALL,
+		  "Chdir syscall invoked, buf: %p.\n",
+		  pathname);
+
+	kpath = kmalloc(PATH_MAX);
+	int err = copyinstr(pathname, kpath, PATH_MAX, &pathlen);
+	if (err) {
+		kfree(kpath);
+		return err;
+	}
+
+	err = vfs_chdir(kpath);
+	if (err) {
+		kfree(kpath);
+		return err;
+	}
+	
+	*retval = 0;
 	return 0;
 }
 
@@ -422,51 +447,6 @@ int sys_dup2(int oldfd, int newfd, int *retval)
 	lock_release(old_file->lock);
 	*retval = newfd;
 
-	return 0;
-}
-
-int sys_chdir(const char *pathname, int32_t *retval)
-{
-	char *path;
-	size_t *path_length;
-
-	if (pathname)
-	{
-		return EFAULT; // or ENOTDIR or EINVAL
-	}
-
-	if (strlen(pathname))
-	{
-		return EINVAL;
-	}
-
-	// We need to check if pathname is valid, we copy the string from userspace
-	// to kernel and check ofr a valid address (already implemented in copyinout.c)
-	KASSERT(curthread != NULL); // we make sure the thread is not null
-
-	path = kmalloc(PATH_MAX);
-	path_length = kmalloc(sizeof(int));
-
-	int err = copyinstr((const_userptr_t)pathname, path, PATH_MAX, path_length);
-
-	if (err)
-	{
-		kfree(path);
-		kfree(path_length);
-		return err;
-	}
-	kfree(path);
-	kfree(path_length);
-
-	int result = vfs_chdir((char *)pathname);
-
-	if (result)
-	{
-		*retval = (int32_t)-1;
-		return result;
-	}
-
-	*retval = (int32_t)0;
 	return 0;
 }
 

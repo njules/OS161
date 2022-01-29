@@ -186,8 +186,10 @@ void syscall(struct trapframe *tf)
 		break;
 
 	case SYS_chdir:
-		err = sys_chdir((const char *)tf->tf_a0,
-						&retval);
+		err = sys_chdir((userptr_t)tf->tf_a0,
+				&retval);
+		if (err)
+			retval = -1;
 		break;
 
 	case SYS___getcwd:
