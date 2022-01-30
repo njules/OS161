@@ -195,6 +195,5 @@ main(void)
 	}
 
 	printf("IS a palindrome\n");
-	exit(1);
 	return 0;
 }
