@@ -79,6 +79,7 @@ int sys_waitpid(pid_t pid, int *retval, int options){
     }
     return 0;
 }
+#if OPT_FORK
 /*
 Function that child first enters, in charge of setting trapframes
 */
@@ -146,7 +147,7 @@ int sys_fork(struct trapframe *tf, int *retval ){
     return 0;
 
 }
-
+#endif
 /* 
 Exits the current process 
 */
