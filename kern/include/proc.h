@@ -66,7 +66,7 @@ struct vnode;
  */
 #if OPT_SHELL
 extern struct pidhandle *pidhandle;
-
+#define MAX_RUNNING_PROCS 250
 #define RUNNING_STATUS 0 /* Running process */
 #define ZOMBIE_STATUS 1 /* A child process terminated, whose parent is running, but has not executed wait is in the zombie state*/
 #define ORPHAN_STATUS 2 /* The child does not become zombie because the system knows that no one is waiting for its exit status */
