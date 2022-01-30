@@ -16,7 +16,18 @@
 #include <syscall.h>  
 
 #define ALIGN_POINTER 4
-#define ALIGN_STACK 8
+#define ALIGN_STACK 8 
+
+/*
+Gets PID of the current process.
+*/
+int sys_getpid(int *retval){
+
+    *retval = curproc->pid;
+
+    return 0;
+}
+
 
 int
 sys_execv(userptr_t program, userptr_t args)
@@ -195,14 +206,9 @@ sys_execv(userptr_t program, userptr_t args)
 	return EINVAL;
 }
 
-void sys__exit(int exitcode){
-
-	process_exit(curproc, exitcode);
-	thread_exit();
-    panic("Exit syscall should never get to this point.");
-
-} 
-
+/* 
+Function to wait for the exit of a child process 
+*/
 int sys_waitpid(pid_t pid, int *retval, int options){
 
     struct proc *child;
@@ -215,7 +221,7 @@ int sys_waitpid(pid_t pid, int *retval, int options){
     }
 
     /*Only allow values for PID that are between the minimum and maximum*/
-    if (pid < PID_MIN || pid > PID_MAX || pidhandle->pid_status[pid] == (int)NULL){
+    if (pid < 2 || pid > MAX_RUNNING_PROCS || pidhandle->pid_status[pid] == (int)NULL){
         return EINVAL;
     }
 
@@ -223,8 +229,7 @@ int sys_waitpid(pid_t pid, int *retval, int options){
     child = pidhandle->pid_proc[pid];
     childrennum = array_num(curproc->children);
     for(int i = 0; i< childrennum; i++){
-        struct proc *tmpChild = array_get(curproc->children, i);
-        if (child == tmpChild){
+        if (child == array_get(curproc->children, i)){
             isachild = true;
             break;
         }
@@ -255,19 +260,85 @@ int sys_waitpid(pid_t pid, int *retval, int options){
     }
     return 0;
 }
-
+#if OPT_FORK
 /*
-Gets PID of the current process.
+Function that child first enters, in charge of setting trapframes
 */
-int sys_getpid(int *retval){
-    lock_acquire(pidhandle->pid_lock);
+void child_forkentry(void *data1, unsigned long data2){
+    (void) data2;
 
-    *retval = curproc->pid;
+    /* We load the address space into child's thread addrespace, so we enlarge the stack*/
+    /* of a total of 16 bytes, since every trapfram is 4 bytes*/
+    void *tf = (void *) curthread->t_stack + 16;
+    memcpy(tf, (const void *) data1, sizeof(struct trapframe));
+
+    /* We activate the new address space */
+    as_activate();
+    kfree((struct trapframe *) data1);
+    /* We return to user mode */
+    mips_usermode(tf);
     
+}
 
-    lock_release(pidhandle->pid_lock);
+/* 
+Function to fork current process and create a child 
+*/
+int sys_fork(struct trapframe *tf, int *retval ){
+
+    struct proc *new_proc; 
+    struct trapframe *new_tf;
+    int res;
+
+    res = handle_proc_fork(&new_proc, "new_child_process");
+    /* If there's an error, return error */
+    if (res) {
+        return res;
+    }
+
+    new_tf = kmalloc(sizeof(struct trapframe));
+	if (new_tf == NULL) {
+		kprintf("No more trapfame space :( \n");
+		return ENOMEM;
+	}
+    // we store the copy of the trampfram on a kernel heap and set to 0 all trapframes
+	memcpy((void *) new_tf, (const void *) tf, sizeof(struct trapframe));
+	(new_tf)->tf_v0 = 0;
+	(new_tf)->tf_v1 = 0;  /* This should only be done if retval is 64 bit, so we leave just in case*/
+	(new_tf)->tf_a3 = 0; 
+    (new_tf)->tf_epc += 4; /* This will avoid child to keep calling fork*/ 
+
+    /* We return the pid to the parent process */
+    *retval = new_proc->pid;
+    /* The two arguments that child_forkentry receives are data1 and data 2
+    but sinces fork doesn't take any arguments (more than trapframe and retval) we pass 0
+    */
+    res = thread_fork("new_child_thread", new_proc, child_forkentry, new_tf, 1);
+	KASSERT(new_proc->pid >= 1 && new_proc->pid <= MAX_RUNNING_PROCS);
+    if (res) {
+		pid_t pid = new_proc->pid;
+		pidhandle_free_pid(pid);
+		proc_destroy(new_proc);
+		
+		
+		kfree(new_tf);
+		return res;
+	}
+
     return 0;
-} 
+
+}
+#endif
+/* 
+Exits the current process 
+*/
+void sys__exit(int exitcode){
+
+	KASSERT(curproc != NULL);
+	KASSERT(curproc->pid >= 1 && curproc->pid <= MAX_RUNNING_PROCS);
+	process_exit(curproc, exitcode);
+	thread_exit();
+    panic("Exit syscall should never get to this point.");
+}
 
 int
 align(int pointer, int align)

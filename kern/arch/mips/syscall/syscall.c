@@ -38,6 +38,8 @@
 #include <file_syscalls.h>
 #include <proc_syscalls.h>
 #include <copyinout.h>
+#include <kern/wait.h>
+#include "opt-fork.h"
 
 /*
  * System call dispatcher.
@@ -215,9 +217,17 @@ void syscall(struct trapframe *tf)
 			retval = -1;
 		}
 		break;
-	
-	case SYS__exit:
-		sys__exit(tf->tf_a0);
+#if OPT_FORK
+	case SYS_fork:
+		err = sys_fork(tf, &retval);
+		if (err){
+			retval = -1;
+		}
+		break;
+#endif	
+	case SYS__exit: ;
+		int exitcode = (int) _MKWAIT_EXIT(tf->tf_a0);
+		sys__exit(exitcode);
 		break;
 
 #endif

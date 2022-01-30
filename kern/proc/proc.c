@@ -89,6 +89,7 @@ proc_create(const char *name)
 	proc->p_cwd = NULL;
 
 #if OPT_SHELL
+	proc->proc_lock = lock_create("proc_lock");
 	proc->children = array_create();
 	if (proc->children == NULL) 
 	{
@@ -186,12 +187,7 @@ void proc_destroy(struct proc *proc)
 		as_destroy(as);
 	}
 
-#if OPT_SHELL
-	/* PID Fields */
-	/* We empty the children array of processes */
-	array_destroy(proc->children);
-	
-#endif
+
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
 
@@ -361,16 +357,9 @@ proc_setas(struct addrspace *newas)
  struct proc *
  get_proc_pid(pid_t pid)
  {
- 	if (pid < PID_MIN || pid > PID_MAX)
- 	{
- 		//return EDOM;
-		return NULL;
- 	}
 
  	struct proc *proc;
 
- 	// only do this if pid lock is not already acquired, implement this
- 	// TO DO
  	// If lock is not acquired, acquire it
 	if (!(lock_do_i_hold(pidhandle->pid_lock))){
 		lock_acquire(pidhandle->pid_lock);
@@ -393,10 +382,13 @@ proc_setas(struct addrspace *newas)
  		//return EDOM;
   	//	return ;
  	//}
+	KASSERT(pid >= 1 && pid <= MAX_RUNNING_PROCS);
 
  	lock_acquire(pidhandle->pid_lock);
  	pidhandle->qty_available++;
  	pidhandle->pid_proc[pid] = NULL;
+	pidhandle->pid_status[pid] = (int) NULL;
+	pidhandle->pid_exitcode[pid] = (int) NULL;
  	lock_release(pidhandle->pid_lock);
  }
 
@@ -425,7 +417,7 @@ proc_setas(struct addrspace *newas)
  	}
 
  	pidhandle->qty_available = 1; /* 1 space for kernel */
- 	pidhandle->next_pid = PID_MIN;
+ 	pidhandle->next_pid = 2;
 
  	pid_t kpid = kproc->pid;
  	/* Set the kernel thread process into the pid structure */
@@ -435,7 +427,7 @@ proc_setas(struct addrspace *newas)
  	pidhandle->qty_available--;
 
  	/* Initialize the handle table */
- 	for (int i = PID_MIN; i < PID_MAX; i++)
+ 	for (int i = 2; i < MAX_RUNNING_PROCS; i++)
  	{
  		pidhandle->qty_available++;
  		pidhandle->pid_proc[i] = NULL;
@@ -453,8 +445,7 @@ proc_setas(struct addrspace *newas)
 
  	if (proc == NULL)
  	{
- 		//return ESRCH;
-		return 0;
+ 		return ESRCH;
  	}
 
  	lock_acquire(pidhandle->pid_lock);
@@ -462,23 +453,25 @@ proc_setas(struct addrspace *newas)
  	if (pidhandle->qty_available < 1)
  	{
  		lock_release(pidhandle->pid_lock);
- 		//return ENPROC;
-		return 0;
+ 		return ENPROC;
  	}
 
  	array_add(curproc->children, proc, NULL);
  	nextpid = pidhandle->next_pid;
  	*retval = nextpid;
-
+	
+	KASSERT(nextpid >= 1 && nextpid <= MAX_RUNNING_PROCS);
  	pidhandle->pid_proc[nextpid] = proc;
+	pidhandle->pid_status[nextpid] = RUNNING_STATUS;
+	pidhandle->pid_exitcode[nextpid] = (int) NULL;
  	pidhandle->qty_available--;
 	
  	/* Find next avaliable pid (from actual "next"), maybe implement status for processes */
  	if (pidhandle->qty_available > 0)
  	{
- 		for (int i = nextpid; i < PID_MAX; i++)
+ 		for (int i = nextpid; i < MAX_RUNNING_PROCS; i++)
  		{
- 			if (pidhandle->pid_proc[i] == NULL || pidhandle->pid_status[i] == (int) NULL)
+ 			if (pidhandle->pid_proc[i] == NULL)
  			{
  				pidhandle->next_pid = i;
  				break;
@@ -487,11 +480,10 @@ proc_setas(struct addrspace *newas)
  	}
  	else
  	{
- 		pidhandle->next_pid = PID_MAX + 1;
+ 		pidhandle->next_pid = MAX_RUNNING_PROCS + 1;
  	}
 
  	lock_release(pidhandle->pid_lock);
-
  	return 0;
  }
 
@@ -499,20 +491,21 @@ proc_setas(struct addrspace *newas)
 void process_exit(struct proc *proc, int exitcode){
 
 	KASSERT(proc != NULL);
-	pid_t pid = proc->pid;
-	struct proc *child;
+	
 	lock_acquire(pidhandle->pid_lock);
+	pid_t pid = proc->pid;
+	
 
 	/* Update list of children due to exit of process, this will be manage by status*/
 	int childrennum = array_num(proc->children);
 	/* We do a for loop backwards from last children so next pid is set correctly*/
-	for(int i = childrennum; i >= 0; i--){
+	for(int i = childrennum -1; i >= 0; i--){
 
-		child = array_get(proc->children, i);
-		int childpid = child->pid;
-
+		struct proc *child = array_get(proc->children, i);
+		pid_t childpid = child->pid;
 		/* If is in zombie status, we destroy the process and clean the pidhandle*/
-
+		if (childpid <= 0 || childpid >= MAX_RUNNING_PROCS){
+			continue;}
 		if(pidhandle->pid_status[childpid] == ZOMBIE_STATUS){
 			/* We update next pid*/
 			if(childpid < pidhandle->next_pid){
@@ -523,6 +516,7 @@ void process_exit(struct proc *proc, int exitcode){
 			pidhandle->pid_proc[childpid] = NULL;
 			pidhandle->pid_status[childpid] = (int) NULL;
 			pidhandle->pid_exitcode[childpid] = (int) NULL;
+			
 		}
 		else if(pidhandle->pid_status[childpid] == RUNNING_STATUS){
 			pidhandle->pid_status[childpid] = ORPHAN_STATUS;
@@ -549,4 +543,59 @@ void process_exit(struct proc *proc, int exitcode){
 	lock_release(pidhandle->pid_lock);
 
 }
+
+#if OPT_FORK
+int handle_proc_fork(struct proc **new_proc, const char *new_name){
+	int res;
+	pid_t pid;
+	struct proc *proc; /* We create a temporary structure to define first*/
+
+	proc = proc_create(new_name);
+	if (proc == NULL) {
+		return ENOMEM;
+	}
+	pid = proc->pid;
+	KASSERT(pid >= 1 && pid <= MAX_RUNNING_PROCS);
+	res = pidhandle_add(proc, &proc->pid);
+	if (res) {
+		proc_destroy(proc);
+		return res;
+	}
+	/* We now copy all of the information of the current process into child*/
+	res = as_copy(curproc->p_addrspace, &proc->p_addrspace);
+	if (res) {
+		pidhandle_free_pid(proc->pid); /* we free spot used for child process*/
+		proc_destroy(proc);
+		return res;
+	}
+
+	/* We use spinlocks to protect the copy of the working directory*/
+	spinlock_acquire(&curproc->p_lock);
+	if (curproc->p_cwd != NULL) {
+		VOP_INCREF(curproc->p_cwd);
+		proc->p_cwd = curproc->p_cwd; 
+	}
+	spinlock_release(&curproc->p_lock);
+	
+	lock_acquire(curproc->proc_lock);
+	/* We copy the filetable*/
+	for( int i = 0; i < OPEN_MAX; i++){
+		struct fhandle *fhandle_entry;
+		fhandle_entry = curproc->p_fdtable[i];
+
+		if (fhandle_entry == NULL) {
+			continue;
+		}
+		lock_acquire(fhandle_entry->lock);
+		fhandle_entry->ref_count ++;
+		lock_release(fhandle_entry->lock);
+
+		proc->p_fdtable[i] = fhandle_entry;
+	}
+	lock_release(curproc->proc_lock);
+	*new_proc = proc;
+
+	return 0;
+}
+#endif
 #endif

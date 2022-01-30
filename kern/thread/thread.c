@@ -496,7 +496,7 @@ thread_fork(const char *name,
 {
 	struct thread *newthread;
 	int result;
-
+	
 	newthread = thread_create(name);
 	if (newthread == NULL) {
 		return ENOMEM;
@@ -509,7 +509,7 @@ thread_fork(const char *name,
 		return ENOMEM;
 	}
 	thread_checkstack_init(newthread);
-
+	
 	/*
 	 * Now we clone various fields from the parent thread.
 	 */

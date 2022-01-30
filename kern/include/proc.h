@@ -66,7 +66,7 @@ struct vnode;
  */
 #if OPT_SHELL
 extern struct pidhandle *pidhandle;
-
+#define MAX_RUNNING_PROCS 250
 #define RUNNING_STATUS 0 /* Running process */
 #define ZOMBIE_STATUS 1 /* A child process terminated, whose parent is running, but has not executed wait is in the zombie state*/
 #define ORPHAN_STATUS 2 /* The child does not become zombie because the system knows that no one is waiting for its exit status */
@@ -88,8 +88,9 @@ struct proc
 	/* add more material here as needed */
 #if OPT_SHELL
 	struct fhandle *p_fdtable[OPEN_MAX]; // file table
-    pid_t pid;
+    	pid_t pid;
 	struct array *children;
+	struct lock *proc_lock;
 #endif
 };
 
@@ -97,12 +98,13 @@ struct proc
 struct pidhandle 
 {
 	struct lock *pid_lock;
+	pid_t *pid_array[PID_MAX];
 	struct cv *pid_cv;  /* Condition variable usde int waitpid */
-	struct proc *pid_proc[PID_MAX + 1]; /* Array of processes where pid is the index*/
+	struct proc *pid_proc[MAX_RUNNING_PROCS +1 ]; /* Array of processes where pid is the index*/
 	int qty_available;
 	int next_pid;
-	int pid_status[PID_MAX + 1]; /* Array to maintain status of processes*/
-	int pid_exitcode[PID_MAX + 1]; /* Array to keep the exit code status*/
+	int pid_status[MAX_RUNNING_PROCS +1 ]; /* Array to maintain status of processes*/
+	int pid_exitcode[MAX_RUNNING_PROCS +1]; /* Array to keep the exit code status*/
 };
 
 void pidhandle_bootstrap(void);
@@ -110,6 +112,8 @@ struct proc *get_proc_pid(pid_t pid);
 int pidhandle_add(struct proc *proc, int *retval);
 void pidhandle_free_pid(pid_t pid);
 void process_exit(struct proc *proc, int exitcode);
+/* Copies process to a new process struct */
+int handle_proc_fork(struct proc **new_proc, const char *name);
 
 #endif
 
