@@ -49,7 +49,6 @@ int sys_waitpid(pid_t pid, int *retval, int options){
     /*Check if actual pid is child of the current process */
     child = pidhandle->pid_proc[pid];
     childrennum = array_num(curproc->children);
-	kprintf("this is the quantity of children: %d", childrennum);
     for(int i = 0; i< childrennum; i++){
         if (child == array_get(curproc->children, i)){
             isachild = true;
