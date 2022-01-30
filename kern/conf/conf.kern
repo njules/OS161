@@ -383,10 +383,8 @@ optfile		shell   	syscall/proc_syscalls.c
 
 
 defoption  synch
-optfile    synch		thread/synch.c  
 
 defoption  fork
-optfile    fork     syscall/proc_syscalls.c
 
 
 #
