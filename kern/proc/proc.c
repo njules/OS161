@@ -89,6 +89,7 @@ proc_create(const char *name)
 	proc->p_cwd = NULL;
 
 #if OPT_SHELL
+	proc->proc_lock = lock_create("proc_lock");
 	proc->children = array_create();
 	if (proc->children == NULL) 
 	{
@@ -495,7 +496,7 @@ proc_setas(struct addrspace *newas)
  	}
 
  	lock_release(pidhandle->pid_lock);
-
+	kprintf("Next pid is: %d\n", nextpid);
  	return 0;
  }
 
