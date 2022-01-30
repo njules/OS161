@@ -584,7 +584,7 @@ int handle_proc_fork(struct proc **new_proc, const char *new_name){
 	}
 	spinlock_release(&curproc->p_lock);
 	
-	lock_acquire(&curproc->p_lock);
+	lock_acquire(curproc->proc_lock);
 	/* We copy the filetable*/
 	for( int i = 0; i < OPEN_MAX; i++){
 		struct fhandle *fhandle_entry;
@@ -599,7 +599,7 @@ int handle_proc_fork(struct proc **new_proc, const char *new_name){
 
 		proc->p_fdtable[i] = fhandle_entry;
 	}
-	lock_release(&curproc->p_lock);
+	lock_release(curproc->proc_lock);
 	*new_proc = proc;
 
 	return 0;
