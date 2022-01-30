@@ -53,6 +53,15 @@ as_create(void)
 	/*
 	 * Initialize as needed.
 	 */
+#if OPT_SHELL
+	as->as_vbase1 = 0;
+	as->as_npages1 = 0;
+	as->as_pbase1 = 0;
+	as->as_vbase2 = 0;
+	as->as_npages2 = 0;
+	as->as_pbase1 = 0;
+	as->as_stackpbase = USERSTACK - DUMBVM_STACKPAGES * PAGE_SIZE;		
+#endif 
 
 	return as;
 }
@@ -78,7 +87,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	newas->as_npages2 = old->as_npages2;
 	newas->as_pbase2 = old->as_pbase2;
 	newas->as_stackpbase = old->as_stackpbase;
-#endif OPT_SHELL
+#endif 
 	(void)old;
 
 	*ret = newas;
