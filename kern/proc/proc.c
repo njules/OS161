@@ -357,13 +357,9 @@ proc_setas(struct addrspace *newas)
  struct proc *
  get_proc_pid(pid_t pid)
  {
- 	
-	KASSERT(pid >= 1 && pid <= MAX_RUNNING_PROCS);
 
  	struct proc *proc;
 
- 	// only do this if pid lock is not already acquired, implement this
- 	// TO DO
  	// If lock is not acquired, acquire it
 	if (!(lock_do_i_hold(pidhandle->pid_lock))){
 		lock_acquire(pidhandle->pid_lock);
@@ -548,6 +544,7 @@ void process_exit(struct proc *proc, int exitcode){
 
 }
 
+#if OPT_FORK
 int handle_proc_fork(struct proc **new_proc, const char *new_name){
 	int res;
 	pid_t pid;
@@ -600,4 +597,5 @@ int handle_proc_fork(struct proc **new_proc, const char *new_name){
 
 	return 0;
 }
+#endif
 #endif

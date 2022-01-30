@@ -135,7 +135,6 @@ int sys_fork(struct trapframe *tf, int *retval ){
 	KASSERT(new_proc->pid >= 1 && new_proc->pid <= MAX_RUNNING_PROCS);
     if (res) {
 		pid_t pid = new_proc->pid;
-		KASSERT(new_proc->pid >= 1 && new_proc->pid <= MAX_RUNNING_PROCS);
 		pidhandle_free_pid(pid);
 		proc_destroy(new_proc);
 		
