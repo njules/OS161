@@ -99,11 +99,11 @@ struct pidhandle
 {
 	struct lock *pid_lock;
 	struct cv *pid_cv;  /* Condition variable usde int waitpid */
-	struct proc *pid_proc[PID_MAX + 1]; /* Array of processes where pid is the index*/
+	struct proc *pid_proc[MAX_RUNNING_PROCS ]; /* Array of processes where pid is the index*/
 	int qty_available;
 	int next_pid;
-	int pid_status[PID_MAX + 1]; /* Array to maintain status of processes*/
-	int pid_exitcode[PID_MAX + 1]; /* Array to keep the exit code status*/
+	int pid_status[MAX_RUNNING_PROCS ]; /* Array to maintain status of processes*/
+	int pid_exitcode[MAX_RUNNING_PROCS ]; /* Array to keep the exit code status*/
 };
 
 void pidhandle_bootstrap(void);

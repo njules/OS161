@@ -362,7 +362,7 @@ proc_setas(struct addrspace *newas)
  struct proc *
  get_proc_pid(pid_t pid)
  {
- 	if (pid < PID_MIN || pid > PID_MAX)
+ 	if (pid < 0 || pid > MAX_RUNNING_PROCS)
  	{
  		//return EDOM;
 		return NULL;
@@ -428,7 +428,7 @@ proc_setas(struct addrspace *newas)
  	}
 
  	pidhandle->qty_available = 1; /* 1 space for kernel */
- 	pidhandle->next_pid = PID_MIN;
+ 	pidhandle->next_pid = 2;
 
  	pid_t kpid = kproc->pid;
  	/* Set the kernel thread process into the pid structure */
@@ -438,7 +438,7 @@ proc_setas(struct addrspace *newas)
  	pidhandle->qty_available--;
 
  	/* Initialize the handle table */
- 	for (int i = PID_MIN; i < PID_MAX; i++)
+ 	for (int i = 2; i < MAX_RUNNING_PROCS; i++)
  	{
  		pidhandle->qty_available++;
  		pidhandle->pid_proc[i] = NULL;
@@ -481,9 +481,9 @@ proc_setas(struct addrspace *newas)
  	/* Find next avaliable pid (from actual "next"), maybe implement status for processes */
  	if (pidhandle->qty_available > 0)
  	{
- 		for (int i = nextpid; i < PID_MAX; i++)
+ 		for (int i = nextpid; i < MAX_RUNNING_PROCS; i++)
  		{
- 			if (pidhandle->pid_proc[i] == NULL || pidhandle->pid_status[i] == (int) NULL)
+ 			if (pidhandle->pid_proc[i] == NULL)
  			{
  				pidhandle->next_pid = i;
  				break;
@@ -492,7 +492,7 @@ proc_setas(struct addrspace *newas)
  	}
  	else
  	{
- 		pidhandle->next_pid = PID_MAX + 1;
+ 		pidhandle->next_pid = MAX_RUNNING_PROCS + 1;
  	}
 
  	lock_release(pidhandle->pid_lock);
