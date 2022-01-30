@@ -187,12 +187,7 @@ void proc_destroy(struct proc *proc)
 		as_destroy(as);
 	}
 
-#if OPT_SHELL
-	/* PID Fields */
-	/* We empty the children array of processes */
-	array_destroy(proc->children);
-	
-#endif
+
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
 
@@ -362,11 +357,8 @@ proc_setas(struct addrspace *newas)
  struct proc *
  get_proc_pid(pid_t pid)
  {
- 	if (pid < 0 || pid > MAX_RUNNING_PROCS)
- 	{
- 		//return EDOM;
-		return NULL;
- 	}
+ 	
+	KASSERT(pid >= 1 && pid <= MAX_RUNNING_PROCS);
 
  	struct proc *proc;
 
@@ -394,6 +386,7 @@ proc_setas(struct addrspace *newas)
  		//return EDOM;
   	//	return ;
  	//}
+	KASSERT(pid >= 1 && pid <= MAX_RUNNING_PROCS);
 
  	lock_acquire(pidhandle->pid_lock);
  	pidhandle->qty_available++;
@@ -456,8 +449,7 @@ proc_setas(struct addrspace *newas)
 
  	if (proc == NULL)
  	{
- 		//return ESRCH;
-		return 0;
+ 		return ESRCH;
  	}
 
  	lock_acquire(pidhandle->pid_lock);
@@ -465,14 +457,14 @@ proc_setas(struct addrspace *newas)
  	if (pidhandle->qty_available < 1)
  	{
  		lock_release(pidhandle->pid_lock);
- 		//return ENPROC;
-		return 0;
+ 		return ENPROC;
  	}
 
  	array_add(curproc->children, proc, NULL);
  	nextpid = pidhandle->next_pid;
  	*retval = nextpid;
-
+	
+	KASSERT(nextpid >= 1 && nextpid <= MAX_RUNNING_PROCS);
  	pidhandle->pid_proc[nextpid] = proc;
 	pidhandle->pid_status[nextpid] = RUNNING_STATUS;
 	pidhandle->pid_exitcode[nextpid] = (int) NULL;
@@ -496,7 +488,6 @@ proc_setas(struct addrspace *newas)
  	}
 
  	lock_release(pidhandle->pid_lock);
-	kprintf("Next pid is: %d\n", nextpid);
  	return 0;
  }
 
@@ -504,20 +495,21 @@ proc_setas(struct addrspace *newas)
 void process_exit(struct proc *proc, int exitcode){
 
 	KASSERT(proc != NULL);
-	pid_t pid = proc->pid;
-	struct proc *child;
+	
 	lock_acquire(pidhandle->pid_lock);
+	pid_t pid = proc->pid;
+	
 
 	/* Update list of children due to exit of process, this will be manage by status*/
 	int childrennum = array_num(proc->children);
 	/* We do a for loop backwards from last children so next pid is set correctly*/
 	for(int i = childrennum -1; i >= 0; i--){
 
-		child = array_get(proc->children, i);
-		int childpid = child->pid;
-
+		struct proc *child = array_get(proc->children, i);
+		pid_t childpid = child->pid;
 		/* If is in zombie status, we destroy the process and clean the pidhandle*/
-
+		if (childpid <= 0 || childpid >= MAX_RUNNING_PROCS){
+			continue;}
 		if(pidhandle->pid_status[childpid] == ZOMBIE_STATUS){
 			/* We update next pid*/
 			if(childpid < pidhandle->next_pid){
@@ -528,6 +520,7 @@ void process_exit(struct proc *proc, int exitcode){
 			pidhandle->pid_proc[childpid] = NULL;
 			pidhandle->pid_status[childpid] = (int) NULL;
 			pidhandle->pid_exitcode[childpid] = (int) NULL;
+			
 		}
 		else if(pidhandle->pid_status[childpid] == RUNNING_STATUS){
 			pidhandle->pid_status[childpid] = ORPHAN_STATUS;
@@ -557,13 +550,15 @@ void process_exit(struct proc *proc, int exitcode){
 
 int handle_proc_fork(struct proc **new_proc, const char *new_name){
 	int res;
+	pid_t pid;
 	struct proc *proc; /* We create a temporary structure to define first*/
 
 	proc = proc_create(new_name);
 	if (proc == NULL) {
 		return ENOMEM;
 	}
-
+	pid = proc->pid;
+	KASSERT(pid >= 1 && pid <= MAX_RUNNING_PROCS);
 	res = pidhandle_add(proc, &proc->pid);
 	if (res) {
 		proc_destroy(proc);

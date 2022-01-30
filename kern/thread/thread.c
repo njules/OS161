@@ -496,12 +496,14 @@ thread_fork(const char *name,
 {
 	struct thread *newthread;
 	int result;
-
+	pid_t pid = proc->pid;
+	KASSERT(pid >= 1 && pid <= MAX_RUNNING_PROCS);
 	newthread = thread_create(name);
 	if (newthread == NULL) {
 		return ENOMEM;
 	}
-
+	pid = proc->pid;
+	KASSERT(pid >= 1 && pid <= MAX_RUNNING_PROCS);
 	/* Allocate a stack */
 	newthread->t_stack = kmalloc(STACK_SIZE);
 	if (newthread->t_stack == NULL) {
@@ -509,7 +511,8 @@ thread_fork(const char *name,
 		return ENOMEM;
 	}
 	thread_checkstack_init(newthread);
-
+	pid = proc->pid;
+	KASSERT(pid >= 1 && pid <= MAX_RUNNING_PROCS);
 	/*
 	 * Now we clone various fields from the parent thread.
 	 */
@@ -521,7 +524,11 @@ thread_fork(const char *name,
 	if (proc == NULL) {
 		proc = curthread->t_proc;
 	}
+	pid = proc->pid;
+	KASSERT(pid >= 1 && pid <= MAX_RUNNING_PROCS);
 	result = proc_addthread(proc, newthread);
+	pid = proc->pid;
+	KASSERT(pid >= 1 && pid <= MAX_RUNNING_PROCS);
 	if (result) {
 		/* thread_destroy will clean up the stack */
 		thread_destroy(newthread);

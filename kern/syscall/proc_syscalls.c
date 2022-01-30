@@ -18,12 +18,10 @@
 Gets PID of the current process.
 */
 int sys_getpid(int *retval){
-    lock_acquire(pidhandle->pid_lock);
 
     *retval = curproc->pid;
     
 
-    lock_release(pidhandle->pid_lock);
     return 0;
 } 
 
@@ -42,7 +40,7 @@ int sys_waitpid(pid_t pid, int *retval, int options){
     }
 
     /*Only allow values for PID that are between the minimum and maximum*/
-    if (pid < 0 || pid > MAX_RUNNING_PROCS || pidhandle->pid_status[pid] == (int)NULL){
+    if (pid < 2 || pid > MAX_RUNNING_PROCS || pidhandle->pid_status[pid] == (int)NULL){
         return EINVAL;
     }
 
@@ -132,11 +130,15 @@ int sys_fork(struct trapframe *tf, int *retval ){
     /* The two arguments that child_forkentry receives are data1 and data 2
     but sinces fork doesn't take any arguments (more than trapframe and retval) we pass 0
     */
-    res = thread_fork("new_child_thread", new_proc, child_forkentry, new_tf, 0);
-
+    res = thread_fork("new_child_thread", new_proc, child_forkentry, new_tf, 1);
+	KASSERT(new_proc->pid >= 1 && new_proc->pid <= MAX_RUNNING_PROCS);
     if (res) {
+		pid_t pid = new_proc->pid;
+		KASSERT(new_proc->pid >= 1 && new_proc->pid <= MAX_RUNNING_PROCS);
+		pidhandle_free_pid(pid);
 		proc_destroy(new_proc);
-		pidhandle_free_pid(new_proc->pid);
+		
+		
 		kfree(new_tf);
 		return res;
 	}
@@ -150,6 +152,8 @@ Exits the current process
 */
 void sys__exit(int exitcode){
 
+	KASSERT(curproc != NULL);
+	KASSERT(curproc->pid >= 1 && curproc->pid <= MAX_RUNNING_PROCS);
 	process_exit(curproc, exitcode);
 	thread_exit();
     panic("Exit syscall should never get to this point.");

@@ -136,7 +136,7 @@ common_prog(int nargs, char **args)
 	 * The new process will be destroyed when the program exits...
 	 * once you write the code for handling that.
 	 */
-	sys_waitpid(proc->pid, NULL, 0);
+	sys_waitpid(2, NULL, 0);
 	kprintf("I passes sys_waitpid\n");
 	return 0;
 }

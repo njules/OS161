@@ -88,7 +88,7 @@ struct proc
 	/* add more material here as needed */
 #if OPT_SHELL
 	struct fhandle *p_fdtable[OPEN_MAX]; // file table
-    pid_t pid;
+    	pid_t pid;
 	struct array *children;
 	struct lock *proc_lock;
 #endif
@@ -98,12 +98,13 @@ struct proc
 struct pidhandle 
 {
 	struct lock *pid_lock;
+	pid_t *pid_array;
 	struct cv *pid_cv;  /* Condition variable usde int waitpid */
-	struct proc *pid_proc[MAX_RUNNING_PROCS ]; /* Array of processes where pid is the index*/
+	struct proc *pid_proc[MAX_RUNNING_PROCS +1 ]; /* Array of processes where pid is the index*/
 	int qty_available;
 	int next_pid;
-	int pid_status[MAX_RUNNING_PROCS ]; /* Array to maintain status of processes*/
-	int pid_exitcode[MAX_RUNNING_PROCS ]; /* Array to keep the exit code status*/
+	int pid_status[MAX_RUNNING_PROCS +1 ]; /* Array to maintain status of processes*/
+	int pid_exitcode[MAX_RUNNING_PROCS +1]; /* Array to keep the exit code status*/
 };
 
 void pidhandle_bootstrap(void);
