@@ -114,8 +114,7 @@ int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 		  fd, buf, size);
 
 	// check fd is within bounds
-	if (fd < 0 || fd >= OPEN_MAX)
-	{
+	if (fd < 0 || fd >= OPEN_MAX) {
 		DEBUG(DB_SYSFILE,
 			  "Read error: File descriptor out of bounds. fd: %d.\n",
 			  fd);
@@ -126,8 +125,7 @@ int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	open_file = curproc->p_fdtable[fd];
 
 	// check that fd points to valid file handle
-	if (open_file == NULL)
-	{
+	if (open_file == NULL) {
 		DEBUG(DB_SYSFILE,
 			  "Read error: fd points to invalid p_fdtable entry. fd: %d.\n",
 			  fd);
@@ -135,8 +133,7 @@ int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	}
 
 	// check that flags allow reading from file
-	if (open_file->flags & O_WRONLY)
-	{
+	if (open_file->flags & O_WRONLY) {
 		DEBUG(DB_SYSFILE,
 			  "Read error: Flags do not allow file to be read from."
 			  " fd: %d, flags: 0x%x.\n",
@@ -154,8 +151,7 @@ int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 
 	// read from file
 	err = VOP_READ(open_file->vn, &u);
-	if (err)
-	{
+	if (err) {
 		DEBUG(DB_SYSFILE,
 			  "Read error: Couldn't read to uio struct. err: %d\n",
 			  err);
@@ -173,7 +169,8 @@ int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 	return 0;
 }
 
-int sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
+int
+sys_write(int fd, userptr_t buf, size_t size, ssize_t *retval)
 {
 	struct fhandle *open_file;
 	struct iovec iov;
@@ -308,26 +305,61 @@ int sys_lseek(int fd, off_t pos, int whence, off_t *retval)
 	return 0;
 }
 
-int sys___getcwd(userptr_t buf, size_t buflen, int *retval)
+int
+sys_chdir(userptr_t pathname, int32_t *retval)
 {
+	char *kpath;
+	size_t pathlen;
 
+	DEBUG(DB_SYSCALL,
+		  "Chdir syscall invoked, buf: %p.\n",
+		  pathname);
+
+	kpath = kmalloc(PATH_MAX);
+	int err = copyinstr(pathname, kpath, PATH_MAX, &pathlen);
+	if (err) {
+		DEBUG(DB_SYSFILE,
+			  "Chdir error: Couldn't read pathname. err: %d\n",
+			  err);
+		kfree(kpath);
+		return err;
+	}
+
+	DEBUG(DB_SYSFILE, "Changing dir to: %s\n", kpath);
+
+	err = vfs_chdir(kpath);
+	if (err) {
+		DEBUG(DB_SYSFILE,
+			  "Chdir error: Couldn't change directory. err: %d\n",
+			  err);
+		kfree(kpath);
+		return err;
+	}
+	
+	*retval = 0;
+	return 0;
+}
+
+int
+sys___getcwd(userptr_t buf, size_t buflen, int *retval)
+{
 	// set up iovec and uio structs to copy cwd
 	struct iovec iov;
 	struct uio u;
 
-	iov.iov_ubase = buf;
-	iov.iov_len = buflen;
-	u.uio_iov = &iov;
-	u.uio_iovcnt = 1;
-	u.uio_resid = buflen;
-	u.uio_offset = 0;
+	DEBUG(DB_SYSCALL,
+		  "Getcwd syscall invoked, buf: %p, size: %d.\n",
+		  buf, buflen);
+
+	uio_kinit(&iov, &u, buf, buflen, 0, UIO_READ);
 	u.uio_segflg = UIO_USERSPACE;
-	u.uio_rw = UIO_READ;
 	u.uio_space = curproc->p_addrspace;
 
 	int err = vfs_getcwd(&u);
-	if (err)
-	{
+	if (err) {
+		DEBUG(DB_SYSFILE,
+			  "Getcwd error: Couldn't read cwd. err: %d\n",
+			  err);
 		return err;
 	}
 
@@ -422,51 +454,6 @@ int sys_dup2(int oldfd, int newfd, int *retval)
 	lock_release(old_file->lock);
 	*retval = newfd;
 
-	return 0;
-}
-
-int sys_chdir(const char *pathname, int32_t *retval)
-{
-	char *path;
-	size_t *path_length;
-
-	if (pathname)
-	{
-		return EFAULT; // or ENOTDIR or EINVAL
-	}
-
-	if (strlen(pathname))
-	{
-		return EINVAL;
-	}
-
-	// We need to check if pathname is valid, we copy the string from userspace
-	// to kernel and check ofr a valid address (already implemented in copyinout.c)
-	KASSERT(curthread != NULL); // we make sure the thread is not null
-
-	path = kmalloc(PATH_MAX);
-	path_length = kmalloc(sizeof(int));
-
-	int err = copyinstr((const_userptr_t)pathname, path, PATH_MAX, path_length);
-
-	if (err)
-	{
-		kfree(path);
-		kfree(path_length);
-		return err;
-	}
-	kfree(path);
-	kfree(path_length);
-
-	int result = vfs_chdir((char *)pathname);
-
-	if (result)
-	{
-		*retval = (int32_t)-1;
-		return result;
-	}
-
-	*retval = (int32_t)0;
 	return 0;
 }
 
