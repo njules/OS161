@@ -32,4 +32,5 @@ options sfs			# Always use the file system
 options dumbvm			# Chewing gum and baling wire.
 
 options shell
-#options synch			# disabled due to bug
+options synch			
+#options fork           #disabled due to pid alloc management error
