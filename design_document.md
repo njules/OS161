@@ -1,16 +1,33 @@
 # Project C2: SHELL
 #### Members of the group: 
-- Julian Neubert
+- Julian Neubert (S288423)
 - Pablo Andres Vejar Gomez (S291761)
 
 #### Date of delivery: 31/01/2022
+
 ## Project Summary
 The main purpose of this project is to support running multiple processes at once from actual compiled programs stored on disk. These programs will be loaded into OS161 and executed in user mode, under the control of your kernel and the command shell in bin/sh (menu command: p bin/sh). 
-In order to achieve this, as a team we implemented several system calls to support processes and file management inside our kernel, that required the creation of new structures to support our given solution. 
+In order to achieve this, as a team, we implemented several system calls to support process and open file management inside our kernel. This also required the creation and management of new data structures to store information about the system process state.
+We added the `OPT_SHELL` option to neatly encapsulate any additions made to the codebase of OS161 during the implementation of our project. This way OS161 can easily be reverted to it's original state and run without the process and file syscall implemented. Two files are being optionally included based on the value of `OPT_SHELL`.
+`file_syscalls.c` contains the main part of the code to support all file-related system calls. It's header file, `file_syscalls.h`, additionally defines a struct `fhandle`, which stores information related to open files that are being used by a process.The main object of our implementation of these system calls is to make sure that any change of information is correctly reflected in the book keeping structures. Most of the actual interaction with the file system is handled by another abstraction layer defined in `vfs.h`. If all information required to access a file has been properly stored, the logic of these system calls is pretty straight forward. One important thing to note is that each system call will carefully need to verify any user supplied arguments and move data between user and kernel spaces in a safe way.
+All of the process management related system calls are implemented in `proc_syscalls.c`. [more][synch?]
+
+## File System Calls
+The file system calls can be divided into several categories. Most are related to interacting with files, such as `open`, `dup2`, `close`, `read`, `write`, and `lseek`. The remaining two, `__getcwd` and `chdir`, are instead used to read and manipulate the current working directory (CWD).
+The CWD is defined per-process and describes the location in the file system from which a process operates. This dictates for example the relative paths of other files to the process. It is stored as a `vnode` struct in the `proc` struct.
+
+## Process System Calls
+
+## Testing
+
+## Bugs and TODOs
+
+-----------
 First, in order to support in a good manner file system calls, we created a new opt-file called `file_syscalls.c` that contains all the file-related system calls and some auxiliar functions that help the process. Inside the header file, we also defined a new structure called `fhandle` that works as a file table for our system where values `fid = 0`, `fid =1` and `fid=2`are destined to `stdin`, `stdout` and `stderr` respectively. As detailed more forward in this report, we defined the following system calls: `sys_open`, `sys_close`, `sys_read`, `sys_write`, `sys___getcwd`, `sys_chdir` and `sys_dup2`. [elaborate more]
 Secondly, we implemented support for processes and their corresponding system calls, and for this part we created a new opt-file called `proc_syscalls.c` and defined new auxiliar methods to help the management of the new structure `pidhandle` defined in `proc.h`. Inside these files we have a simulation of a PID table that keeps the information about processes like exit status, running status and a list of process with their corresponding PID's, and as defined, `pid = 1 ` is reserved for the kernel process. For this part, we decided to keep also track of the children of processes. As written in the further sections, we defined the following system calls: `sys_getpid`, `sys_waitpid`, `sys_execv`, `sys_fork` and `sys_exit`. 
 During this last part, we dealed with some issues respecting to fork and maintainence of process information when exiting a process after a fork failure, so we decided to define a new `option` called `OPT_FORK`, even though tests run with few errors. With respect to the other syscalls in the process side, they are working correctly and with some minor issues.
 Lastly, we implemented synchronization for mainly obvious reasons such as synchronization when reading and writing. For this matter, we implemented locks and conditional variables using `waitchannels` and `spinlocks` that were already implemented in OS161. [maybe finish up with some conclusions]
+--------------
 
 # Structs
 
