@@ -7,17 +7,24 @@ int
 main()
 {
 	char cwd[PATH_MAX+1];
-	char testfolder[] = "testbin/";
+	char testfolder[] = "..";
+	
 	int err;
 	
-	getcwd(cwd, PATH_MAX+1);
-	printf("Current working directory: \"%s\"\n", cwd);
+	
+	printf("Current working directory: \"%s\"\n", getcwd(cwd, PATH_MAX+1));
 
 	err = chdir(testfolder);
 	if (err) {
 		printf("Couldn't change working directory because %d\n", err);
 	} else {
 		getcwd(cwd, PATH_MAX+1);
-		printf("Changed working directory to: \"%s\"\n", cwd);
+		
+		if(cwd !=NULL){
+			printf("Changed working directory to: \"%s\"\n", cwd);
+		} else {
+			printf("getcwd() error");
+		}
 	}
+	return 0;
 }
