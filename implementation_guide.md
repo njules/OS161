@@ -296,7 +296,6 @@ Enable option fork for these tests.
 
 ### exit
 - called after every program
-- TODO: test exitcodes?
 
 ### waitpid
 - forktest (waits for all forked processes to end)
@@ -312,10 +311,10 @@ Enable option fork for these tests.
 - bigseek (open file)
 
 ### dup2
-- testdup2
+- testdup2exit
 
 ### close
-- TODO: test with dup2?
+- testdup2exit
 
 ### read
 - sink (read from console)
@@ -358,3 +357,4 @@ Enable option fork for these tests.
   - fork
   - waitpid
   - exit
+- testing & debugging
