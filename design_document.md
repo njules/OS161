@@ -10,7 +10,8 @@ The main purpose of this project is to support running multiple processes at onc
 In order to achieve this, as a team, we implemented several system calls to support process and open file management inside our kernel. This also required the creation and management of new data structures to store information about the system process state.
 We added the `OPT_SHELL` option to neatly encapsulate any additions made to the codebase of OS161 during the implementation of our project. This way OS161 can easily be reverted to it's original state and run without the process and file syscall implemented. Two files are being optionally included based on the value of `OPT_SHELL`.
 `file_syscalls.c` contains the main part of the code to support all file-related system calls. Its header file, `file_syscalls.h`, additionally defines a struct `fhandle`, which stores information related to open files that are being used by a process. A big part of our implementation of these system calls is to make sure that any change of information is correctly reflected in the state managing structures. Most of the actual interaction with the file system is handled by another abstraction layer defined in `vfs.h`. If all information required to interact with a file has been properly saved, the logic of these system calls is pretty straight forward. One important thing to note is that each system call will carefully need to verify any user supplied arguments and move data between user and kernel spaces in a safe way.
-All of the process management related system calls are implemented in `proc_syscalls.c`. [more][synch?]
+All of the process management related system calls are implemented in `proc_syscalls.c`. Similarly to what was implemented in `file_syscalls.c`, for properly management of processes and PIDs , its header file defines a struct `pidhandle` that helps to keep consistent information of processes and their important aspescts, such as PIDs and status. Using this structure, it was possible to get a good management of processes information, synchronization and consistency with multi-processes. One of the main objects for this part of the implementation is to have a safe life cycle for the process and synchronized information during all the running, and get a good functioning for program execution from the shell. 
+It is important to notice that implementing synchronization principles was key to get a good result on the implementation of system calls, such as locks and conditional variables which are defined and described in file `synch.c`.
 
 ## File System Calls
 The file system calls can be divided into several categories. Most are related to interacting with files, such as `open`, `dup2`, `close`, `read`, `write`, and `lseek`. The remaining two, `__getcwd` and `chdir`, are instead used to read and manipulate the current working directory.
@@ -23,16 +24,21 @@ Lastly there are a few special file descriptors, which have a special meaning by
 
 ## Process System Calls
 
-## Testing
+The process system calls has a strong dependency with the structs defined for handling processes inside `proc.h`. These system calls are mainly related to process synchronization in cycle of life and process execution. Firstly, for synchronization we defined system calls such as `getpid`, `waitpid`, `fork` and `exit`. On the other hand, `execv` is ...
+
+In order to implement the latter system calls, it was necessary to create a new structure that took care of processes and kept track of their pids. In this way, inside file `proc.h` is defined a new structure called `pidhandle` and some auxiliar methods to manage it. The new structure works as a PID table that keeps the processes information like exit status, running status and the list of process with their corresponding PIDs. The assignment of the processor's id starts with `proc_create` where the kernel process gets `pid = 1`.
+
+More specifically, the structure `pidhandle` has 8 arguments, and each of this help to maintain the information of processes, such as status of process, exit codes, a list of processes, among others. There are several functions implemented inside `proc.c` that intiate and control the pidhandle structure, such as `pidhandle_bootstrap` that is called once the kernel is initiated, `pidhandle_add` that adds a new process into the pidhandle. Further details of these methods are described in the following sections.  
+
+
+Almost all process system calls use the structure created, since it was simpler to obtain pids from a simulated table and also easier to manage. In this way, `getpid` returns the pid of the actual process thanks to the new field in the proc structure, and `waitpid`, `exit` and `fork` interact in a more direct way with `pidtable`.
 
 ## Bugs and TODOs
 
------------
-First, in order to support in a good manner file system calls, we created a new opt-file called `file_syscalls.c` that contains all the file-related system calls and some auxiliar functions that help the process. Inside the header file, we also defined a new structure called `fhandle` that works as a file table for our system where values `fid = 0`, `fid =1` and `fid=2`are destined to `stdin`, `stdout` and `stderr` respectively. As detailed more forward in this report, we defined the following system calls: `sys_open`, `sys_close`, `sys_read`, `sys_write`, `sys___getcwd`, `sys_chdir` and `sys_dup2`. [elaborate more]
-Secondly, we implemented support for processes and their corresponding system calls, and for this part we created a new opt-file called `proc_syscalls.c` and defined new auxiliar methods to help the management of the new structure `pidhandle` defined in `proc.h`. Inside these files we have a simulation of a PID table that keeps the information about processes like exit status, running status and a list of process with their corresponding PID's, and as defined, `pid = 1 ` is reserved for the kernel process. For this part, we decided to keep also track of the children of processes. As written in the further sections, we defined the following system calls: `sys_getpid`, `sys_waitpid`, `sys_execv`, `sys_fork` and `sys_exit`. 
-During this last part, we dealed with some issues respecting to fork and maintainence of process information when exiting a process after a fork failure, so we decided to define a new `option` called `OPT_FORK`, even though tests run with few errors. With respect to the other syscalls in the process side, they are working correctly and with some minor issues.
-Lastly, we implemented synchronization for mainly obvious reasons such as synchronization when reading and writing. For this matter, we implemented locks and conditional variables using `waitchannels` and `spinlocks` that were already implemented in OS161. [maybe finish up with some conclusions]
---------------
+During the development of the project, we dealed with some issues that we could not solve entirely. 
+We dealed with some issues respecting to fork and maintainence of pid when exiting a process after a fork failure, so we decided to define a new `option` called `OPT_FORK`. In this way, when it is set to `1` , tests like `forktest`, `bigfork` and `forkbomb` work partially due to not having enough memory or to this bug presented, that's basically trying to exit a process with a non-existing `pid`, since `proc_destroy` is runned first than the function that manages "freeing" of `pidhandle`.
+
+
 
 # Structs
 
@@ -42,15 +48,10 @@ Lastly, we implemented synchronization for mainly obvious reasons such as synchr
 
 Preexisting process structure.
 
-Added `p_fdtable`.
-`p_fdtable` is an array of length `OPEN_MAX`.
-It is indexed by the file descriptor `fd`, which returned after opening a file.
-`p_fdtable` stores file handles `fhandle`.
-It is initialized in `static struct proc *proc_create(const char *name);` in `kern/proc/proc.c`.
-`stdin`, `stdout`, and `stderr` are opened in `int runprogram(char *progname);` and added to `p_fdtable`.
-Added `pid`
-`pid` is a pid_t type argument that represents the id of the process with a maximum value defined of `MAX_RUNNING_PROCS` equal to `250` and a minimum of 1..
-Added `children`, which corresponds to al of the childrend of the actual process.
+- Added `p_fdtable`: is an array of length `OPEN_MAX`. It is indexed by the file descriptor `fd`, which returned after opening a file. `p_fdtable` stores file handles `fhandle`.
+It is initialized in `static struct proc *proc_create(const char *name);` in `kern/proc/proc.c`. `stdin`, `stdout`, and `stderr` are opened in `int runprogram(char *progname);` and added to `p_fdtable`.
+- Added `pid`:  is a pid_t type argument that represents the id of the process with a maximum value defined of `MAX_RUNNING_PROCS` equal to `250` and a minimum of 1.
+- Added `children`, which corresponds to al of the children of the actual process.
 
 ```
 struct proc {
@@ -89,20 +90,22 @@ struct fhandle {
 };
 ```
 
-## pdhandle 
+## pidhandle 
 
 `kern/include/proc.h`
 
 - PID handle structure: In charge of keeping all the information about processes, their pids and exit codes. It also contains a lock and a conditional variable variable to make syncrhonization factible.
 
 ```
-struct pidhandle
+struct pidhandle 
 {
 	struct lock *pid_lock;
-	struct cv *pid_cv;
-	struct proc *pid_proc[PID_MAX + 1];
-	int qty_available; 
+	struct cv *pid_cv;  
+	struct proc *pid_proc[MAX_RUNNING_PROCS +1 ]; 
+	int qty_available;
 	int next_pid;
+	int pid_status[MAX_RUNNING_PROCS +1 ]; 
+	int pid_exitcode[MAX_RUNNING_PROCS +1]; 
 };
 
 ``` 
@@ -249,7 +252,7 @@ exit syscall handler.
 ```
 void sys__exit(int exitcode);
 ```
-
+#Helper methods
 ## pidhandle_bootstrap
 
 `kern/proc/proc.c`
@@ -288,6 +291,36 @@ frees a given pid from the pid handle table
 
 ```
 int pidhandle_free_pid(pid_t);
+```
+
+## process_exit
+
+`kern/proc/proc.c`
+
+helps managing pidhandle when exiting a process 
+
+```
+void process_exit(struct proc *proc, int exitcode);
+```
+
+## handle_proc_fork
+
+`kern/proc/proc.c`
+
+helps managing pidhandle when forking a process 
+
+```
+int handle_proc_fork(struct proc **new_proc, const char *name);
+```
+
+## child_forkentry
+
+`kern/proc/proc.c`
+
+this is the entry point of a forked process
+
+```
+void child_forkentry(void *data1, unsigned long data2)
 ```
 
 # Options
@@ -391,7 +424,8 @@ Enable option fork for these tests.
 
 
 ## Conclusions
-[to fill]
+
+
 
 
 
