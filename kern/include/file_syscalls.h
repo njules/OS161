@@ -31,6 +31,7 @@ int sys___getcwd(userptr_t buf, size_t buflen, int *retval);
 int create_fhandle_struct(
 	char* path, int flags, int mode, off_t offset, struct fhandle* retval
 );
+void destroy_fhandle_struct(struct fhandle *open_file);
 int open_console(struct fhandle *fdtable[]);
 
 #endif

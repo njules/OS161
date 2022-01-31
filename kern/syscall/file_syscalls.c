@@ -101,6 +101,54 @@ sys_open(userptr_t filename, int flags, int *retval)
 }
 
 int
+sys_dup2(int oldfd, int newfd, int *retval)
+{
+	struct fhandle *old_fhandle;
+	struct fhandle *new_fhandle;
+
+	DEBUG(DB_SYSCALL,
+		"Dup2 syscall invoked, oldfd: %d, newfd: %d.\n",
+		oldfd, newfd);
+
+	if (oldfd < 0 || oldfd >= OPEN_MAX || newfd < 0 || newfd >= OPEN_MAX) {
+		DEBUG(DB_SYSFILE,
+			  "Dup2 error: File descriptor out of bounds. oldfd: %d, newfd: %d.\n",
+			  oldfd, newfd);
+		return EBADF;
+	}
+
+	old_fhandle = curproc->p_fdtable[oldfd];
+	if (old_fhandle == NULL) {
+		DEBUG(DB_SYSFILE,
+			  "Dup2 error: Invalid fd. oldfd: %d.\n",
+			  oldfd);
+		return EBADF;
+	}
+
+	if (oldfd == newfd) {
+		return newfd;
+	}
+
+	// If the descriptor newfd was previously open, it is silently closed before being reused.
+	new_fhandle = curproc->p_fdtable[newfd];
+	if (new_fhandle != NULL) {
+		lock_acquire(new_fhandle->lock);
+		DEBUG(DB_SYSFILE, "Closing new file handle. fd: %d.\n", newfd);
+		curproc->p_fdtable[newfd] = NULL;
+		destroy_fhandle_struct(new_fhandle);
+	}
+
+	//asign to the new fd the old file
+	curproc->p_fdtable[newfd] = old_fhandle;
+	lock_acquire(old_fhandle->lock);
+	old_fhandle->ref_count += 1;
+	lock_release(old_fhandle->lock);
+
+	*retval = newfd;
+	return 0;
+}
+
+int
 sys_close(int fd)
 {
 	struct fhandle *open_file;
@@ -134,14 +182,11 @@ sys_close(int fd)
 	if (open_file->ref_count == 0) {
 		DEBUG(DB_SYSFILE, "Closing file handle. fd: %d.\n", fd);
 		curproc->p_fdtable[fd] = NULL;
-		vfs_close(open_file->vn);
-		lock_release(open_file->lock);
-		lock_destroy(open_file->lock);
-		kfree(open_file);
+		destroy_fhandle_struct(open_file);
+		return 0;
 	}
 
 	lock_release(open_file->lock);
-
 	return 0;
 }
 
@@ -410,57 +455,8 @@ sys___getcwd(userptr_t buf, size_t buflen, int *retval)
 	return 0;
 }
 
-int sys_dup2(int oldfd, int newfd, int *retval)
-{
-
-	if (oldfd < 0 || oldfd >= OPEN_MAX || newfd < 0 || newfd >= OPEN_MAX)
-	{
-		return EBADF;
-	}
-	// If oldfd is a valid file descriptor, and newfd has the same value as oldfd, then dup2() does
-	// nothing, and returns newfd.
-	if (oldfd == newfd)
-	{
-		return newfd;
-	}
-
-	struct fhandle *old_file;
-	struct fhandle *previous_file;
-	old_file = curproc->p_fdtable[oldfd];
-
-	if (old_file == NULL) // nothing to copy
-	{
-		return EBADF;
-	}
-
-	// If the descriptor newfd was previously open, it is silently closed before being reused.
-	previous_file = curproc->p_fdtable[newfd];
-	if (previous_file != NULL)
-	{
-		lock_acquire(previous_file->lock);
-
-		previous_file->ref_count -= 1;
-		if (previous_file->ref_count == 0)
-		{
-			vfs_close(previous_file->vn); // we close the previously open file
-			lock_destroy(previous_file->lock);
-		}
-		lock_release(previous_file->lock);
-		curproc->p_fdtable[newfd] = NULL; // we set it to null
-		kfree(previous_file);
-	}
-
-	//asign to the new fd the old file
-	curproc->p_fdtable[newfd] = old_file;
-	lock_acquire(old_file->lock);
-	old_file->ref_count += 1;
-	lock_release(old_file->lock);
-	*retval = newfd;
-
-	return 0;
-}
-
-int create_fhandle_struct(char *path, int flags, int mode, off_t offset, struct fhandle *retval)
+int
+create_fhandle_struct(char *path, int flags, int mode, off_t offset, struct fhandle *retval)
 {
 	struct vnode *vn;
 	int err;
@@ -482,7 +478,17 @@ int create_fhandle_struct(char *path, int flags, int mode, off_t offset, struct 
 	return 0;
 }
 
-int open_console(struct fhandle *fdtable[])
+void
+destroy_fhandle_struct(struct fhandle *open_file)
+{
+	vfs_close(open_file->vn);
+	lock_destroy(open_file->lock);
+	kfree(open_file);
+	return;
+}
+
+int
+open_console(struct fhandle *fdtable[])
 {
 	int err;
 
