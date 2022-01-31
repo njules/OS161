@@ -24,14 +24,15 @@ Lastly there are a few special file descriptors, which have a special meaning by
 
 ## Process System Calls
 
-The process system calls has a strong dependency with the structs defined for handling processes inside `proc.h`. These system calls are mainly related to process synchronization in cycle of life and process execution. Firstly, for synchronization we defined system calls such as `getpid`, `waitpid`, `fork` and `exit`. On the other hand, `execv` is ...
+The process system calls has a strong dependency with the structs defined for handling processes inside `proc.h`. These system calls are mainly related to process synchronization in cycle of life and process execution. Firstly, for synchronization we defined system calls such as `getpid`, `waitpid`, `fork` and `exit`. On the other hand, `execv` is ... 
 
-In order to implement the latter system calls, it was necessary to create a new structure that took care of processes and kept track of their pids. In this way, inside file `proc.h` is defined a new structure called `pidhandle` and some auxiliar methods to manage it. The new structure works as a PID table that keeps the processes information like exit status, running status and the list of process with their corresponding PIDs. The assignment of the processor's id starts with `proc_create` where the kernel process gets `pid = 1`.
-
+In order to implement the latter system calls, it was necessary to create a new structure that took care of processes and related them with their pids. In this way, inside file `proc.h` is defined a new structure called `pidhandle` and some auxiliar methods to manage it. The new structure works as a PID table that keeps the information about processes like exit status, running status and the list of process with their corresponding PIDs. The assignment of the processor's id starts with `proc_create` where the kernel process gets `pid = 1`.
 More specifically, the structure `pidhandle` has 8 arguments, and each of this help to maintain the information of processes, such as status of process, exit codes, a list of processes, among others. There are several functions implemented inside `proc.c` that intiate and control the pidhandle structure, such as `pidhandle_bootstrap` that is called once the kernel is initiated, `pidhandle_add` that adds a new process into the pidhandle. Further details of these methods are described in the following sections.  
 
-
 Almost all process system calls use the structure created, since it was simpler to obtain pids from a simulated table and also easier to manage. In this way, `getpid` returns the pid of the actual process thanks to the new field in the proc structure, and `waitpid`, `exit` and `fork` interact in a more direct way with `pidtable`.
+
+
+## Testing
 
 ## Bugs and TODOs
 
