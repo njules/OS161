@@ -213,7 +213,7 @@ exit syscall handler.
 ```
 void sys__exit(int exitcode);
 ```
-
+#Helper methods
 ## pidhandle_bootstrap
 
 `kern/proc/proc.c`
@@ -253,6 +253,37 @@ frees a given pid from the pid handle table
 ```
 int pidhandle_free_pid(pid_t);
 ```
+
+## process_exit
+
+`kern/proc/proc.c`
+
+helps managing pidhandle when exiting a process 
+
+```
+void process_exit(struct proc *proc, int exitcode);
+```
+
+## handle_proc_fork
+
+`kern/proc/proc.c`
+
+helps managing pidhandle when forking a process 
+
+```
+int handle_proc_fork(struct proc **new_proc, const char *name);
+```
+
+## child_forkentry
+
+`kern/proc/proc.c`
+
+this is the entry point of a forked process
+
+```
+void child_forkentry(void *data1, unsigned long data2)
+```
+
 
 # Options
 
@@ -347,14 +378,30 @@ Enable option fork for these tests.
 - crash
 - factorial
 - farm
-- faulter (no panic on invalid pointer cast) TODO: where?
+- faulter (no panic on invalid pointer cast)
 - chain of processes (waitpid)
 - kitchen
 
-# TODOs
-- syscalls
-  - getpid
-  - fork
-  - waitpid
-  - exit
-- testing & debugging
+
+
+# Division of work
+
+As a team organization we adopted github and branches to every change that we made to kernel. Every new functionality had its own branch to implement it and test it.
+As a matter of system calls, the division was the following:
+
+
+| System call | Member in charge |  Not finished| Almost finished | Finished |
+| ---- |------| ------|------| ---- |
+| `sys_fork` | Pablo |  | X|
+| `sys_chdir` | Pablo - Julian|  | | X|
+| `sys_dup2` | Pablo - Julian|  | X | |
+| `sys___getcwd` |  Pablo - Julian| | | X |
+| `sys_open` | Julian|  | X| |
+| `sys_execv` | Julian|  | | X|
+| `sys_lseek` | Julian|  | X| |
+| `sys_write` | Julian|  | X| |
+| `sys_read` | Julian|  | X| |
+| `sys_exit` | Pablo |  | X| |
+| `sys_waitpid` | Pablo |  | | X |
+| `sys_getpid` | Pablo |  | | X|
+| `sys_close` | Pablo - Julian |  | X | |
