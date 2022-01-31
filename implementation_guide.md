@@ -295,7 +295,7 @@ Enable option fork for these tests.
 - argtest (can be called to print passed args)
 
 ### exit
-- called after every program [i'm not sure that this is true]
+- called after every program
 - TODO: test exitcodes?
 
 ### waitpid
