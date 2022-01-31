@@ -163,7 +163,7 @@ lock_create(const char *name)
 	{
 		kfree(lock->lk_name);
 		kfree(lock);
-		return NULL; //TODO : search the correct error to throw
+		return NULL; 
 	}
 	spinlock_init(&lock->lk_lock);
 	lock->lk_owner = NULL;

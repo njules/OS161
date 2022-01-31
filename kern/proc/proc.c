@@ -538,7 +538,6 @@ void process_exit(struct proc *proc, int exitcode){
 		pidhandle->pid_status[pid] = (int) NULL;
 		pidhandle->pid_exitcode[pid] = (int) NULL;
 	}
-	/* TODO: maybe not broadcast all because there's no guarantee that they are waiting on us. Improve*/
 	cv_broadcast(pidhandle->pid_cv, pidhandle->pid_lock); /* Broadcast to all waiting processes*/
 	lock_release(pidhandle->pid_lock);
 
