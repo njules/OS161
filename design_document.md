@@ -424,12 +424,6 @@ Enable option fork for these tests.
 - kitchen
 
 
-## Conclusions
-
-
-
-
-
 
 
 
