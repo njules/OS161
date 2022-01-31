@@ -14,7 +14,7 @@ All of the process management related system calls are implemented in `proc_sysc
 It is important to notice that implementing synchronization principles was key to get a good result on the implementation of system calls, such as locks and conditional variables which are defined and described in file `synch.c`.
 
 ## File System Calls
-### Responsible: Julian
+#### Responsible: Julian
 The file system calls can be divided into several categories. Most are related to interacting with files, such as `open`, `dup2`, `close`, `read`, `write`, and `lseek`. The remaining two, `__getcwd` and `chdir`, are instead used to read and manipulate the current working directory.
 The CWD is defined per-process and describes the location in the file system from which a process operates. This dictates for example the relative paths of other files to the process. It is stored as a `vnode` struct in the `proc` struct. `__getcwd` can be used to read it and `chdir` can set it to a new directory.
 If a process is interacting with a file, then the 
@@ -23,10 +23,11 @@ Internally the file descriptor points to a file handle, a `fhandle` struct. File
 All file handles associated with a process are stored in the file table, an array of `fhandle`s called `p_fdtable` that is stored in the `proc` struct. Usually file handles are modified implicitly such as during syscalls `read` or `write`, to keep their state up to date. But they can also be changed explicitly with syscalls such as `lseek` or `dup2`.
 Lastly there are a few special file descriptors, which have a special meaning by convention. The first three entries of the file table correspond to stdin, stdout and stderr and are generally available to a process without specifically having to open them. To achieve this we open them in the first user process that is being created and pass them down to other processes in the fork system call. This is achieved in the `runprogram` function.
 
+**Overall responsibility:** Julian Neubart
+
 ## Process System Calls
-### Responsible (except execv): Pablo
-### Responsible (execv only): Julian
-### Responsible synchronization: Pablo
+#### Responsible (except execv): Pablo
+#### Responsible (execv only): Julian
 
 The process system calls has a strong dependency with the structs defined for handling processes inside `proc.h`. These system calls are mainly related to process synchronization in cycle of life and process execution. Firstly, for synchronization we defined system calls such as `getpid`, `waitpid`, `fork` and `exit`. On the other hand, `execv` is not as closely related to synchronization.
 
@@ -37,6 +38,12 @@ In order to implement the latter system calls, it was necessary to create a new 
 More specifically, the structure `pidhandle` has 8 arguments, and each of this help to maintain the information of processes, such as status of process, exit codes, a list of processes, among others. There are several functions implemented inside `proc.c` that intiate and control the pidhandle structure, such as `pidhandle_bootstrap` that is called once the kernel is initiated, `pidhandle_add` that adds a new process into the pidhandle. Further details of these methods are described in the following sections. 
 
 Almost all process system calls use the structure created, since it was simpler to obtain pids from a simulated table and also easier to manage. In this way, `getpid` returns the pid of the actual process thanks to the new field in the proc structure, and `waitpid`, `exit` and `fork` interact in a more direct way with `pidtable`.
+
+
+## Synchronization
+
+#### Responsible synchronization: Pablo
+The implementation of synchronization is something that's cleary useful for this project, for example for system calls `read` and `write`. For this matter, we implemented locks and conditional variables using `waitchannels` and `spinlocks` that were already implemented in OS161.
 
 
 ## Testing
