@@ -140,6 +140,8 @@ sys_close(int fd)
 		kfree(open_file);
 	}
 
+	lock_release(open_file->lock);
+
 	return 0;
 }
 
