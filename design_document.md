@@ -1,3 +1,17 @@
+# Project C2: SHELL
+#### Members of the group: 
+- Julian Neubert
+- Pablo Andres Vejar Gomez (S291761)
+
+#### Date of delivery: 31/01/2022
+## Project Summary
+The main purpose of this project is to support running multiple processes at once from actual compiled programs stored on disk. These programs will be loaded into OS161 and executed in user mode, under the control of your kernel and the command shell in bin/sh (menu command: p bin/sh). 
+In order to achieve this, as a team we implemented several system calls to support processes and file management inside our kernel, that required the creation of new structures to support our given solution. 
+First, in order to support in a good manner file system calls, we created a new opt-file called `file_syscalls.c` that contains all the file-related system calls and some auxiliar functions that help the process. Inside the header file, we also defined a new structure called `fhandle` that works as a file table for our system where values `fid = 0`, `fid =1` and `fid=2`are destined to `stdin`, `stdout` and `stderr` respectively. As detailed more forward in this report, we defined the following system calls: `sys_open`, `sys_close`, `sys_read`, `sys_write`, `sys___getcwd`, `sys_chdir` and `sys_dup2`. [elaborate more]
+Secondly, we implemented support for processes and their corresponding system calls, and for this part we created a new opt-file called `proc_syscalls.c` and defined new auxiliar methods to help the management of the new structure `pidhandle` defined in `proc.h`. Inside these files we have a simulation of a PID table that keeps the information about processes like exit status, running status and a list of process with their corresponding PID's, and as defined, `pid = 1 ` is reserved for the kernel process. For this part, we decided to keep also track of the children of processes. As written in the further sections, we defined the following system calls: `sys_getpid`, `sys_waitpid`, `sys_execv`, `sys_fork` and `sys_exit`. 
+During this last part, we dealed with some issues respecting to fork and maintainence of process information when exiting a process after a fork failure, so we decided to define a new `option` called `OPT_FORK`, even though tests run with few errors. With respect to the other syscalls in the process side, they are working correctly and with some minor issues.
+Lastly, we implemented synchronization for mainly obvious reasons such as synchronization when reading and writing. For this matter, we implemented locks and conditional variables using `waitchannels` and `spinlocks` that were already implemented in OS161. [maybe finish up with some conclusions]
+
 # Structs
 
 ## proc
@@ -13,8 +27,8 @@ It is indexed by the file descriptor `fd`, which returned after opening a file.
 It is initialized in `static struct proc *proc_create(const char *name);` in `kern/proc/proc.c`.
 `stdin`, `stdout`, and `stderr` are opened in `int runprogram(char *progname);` and added to `p_fdtable`.
 Added `pid`
-`pid` is a pid_t type argument that represents the id of the process.
-Added `children`, which corresponds to al of the child processes.
+`pid` is a pid_t type argument that represents the id of the process with a maximum value defined of `MAX_RUNNING_PROCS` equal to `250` and a minimum of 1..
+Added `children`, which corresponds to al of the childrend of the actual process.
 
 ```
 struct proc {
@@ -31,7 +45,7 @@ struct proc {
 	/* add more material here as needed */
 #if OPT_SHELL
 	struct fhandle *p_fdtable[OPEN_MAX];  // file table
-  pid_t pid;
+  	pid_t pid;
 	struct array *children;
 #endif
 };
@@ -57,7 +71,7 @@ struct fhandle {
 
 `kern/include/proc.h`
 
-PID handle structure. 
+- PID handle structure: In charge of keeping all the information about processes, their pids and exit codes. It also contains a lock and a conditional variable variable to make syncrhonization factible.
 
 ```
 struct pidhandle
@@ -79,7 +93,7 @@ struct pidhandle
 
 Preexisting method to dispatch syscalls.
 
-Added support for `SYS_OPEN, SYS_READ, SYS_LSEEK, SYS___GETCWD`.
+Added support for `SYS_open, SYS_read, SYS_lseek, SYS___getcwd, SYS_chdir, SYS_close, SYS_dup2, SYS_write, SYS_waitpid, SYS_getpid, SYS__exit` and partial support for `SYS_fork`.
 
 ```
 void syscall(struct trapframe *tf);
@@ -164,6 +178,56 @@ chdir syscall handler.
 int sys_chdir(const char *path, int32_t *retval);
 ```
 
+## sys_getpid
+
+`kern/syscall/proc_syscalls.c`
+
+getpid syscall handler.
+
+```
+int sys_getpid(int *retval);
+```
+
+## sys_waitpid
+
+`kern/syscall/proc_syscalls.c`
+
+waitpid syscall handler.
+
+```
+int sys_waitpid(pid_t pid, int *retval, int options);
+```
+
+## sys_execv
+
+`kern/syscall/proc_syscalls.c`
+
+execv syscall handler.
+
+```
+int sys_execv(userptr_t program, userptr_t args);
+```
+
+## sys_fork
+
+`kern/syscall/proc_syscalls.c`
+
+fork syscall handler.
+
+```
+int sys_fork(struct trapframe *, int *retval );
+```
+
+## sys__exit
+
+`kern/syscall/proc_syscalls.c`
+
+exit syscall handler.
+
+```
+void sys__exit(int exitcode);
+```
+
 ## pidhandle_bootstrap
 
 `kern/proc/proc.c`
@@ -215,36 +279,54 @@ optfile	   shell	syscall/file_syscalls.c
 optfile	   shell	syscall/proc_syscalls.c
 ```
 
+## synch
+
+Enable locks and condition variables.
+
+```
+optfile	   synch	thread/synch.c
+```
+
+## fork
+
+Enable fork syscall and process managing.
+
+```
+optfile	   fork	
+```
+
 
 # Tests
 
 ### fork
 - forktest (forks several times)
-- TODO: enough?
+- forkbomb
+- bigfork
+Enable option fork for these tests.
 
 ### execv
 - testexecv (calls argtest with args)
 - argtest (can be called to print passed args)
 
 ### exit
-- called after every program
+- called after every program [i'm not sure that this is true]
 - TODO: test exitcodes?
 
 ### waitpid
 - forktest (waits for all forked processes to end)
-- TODO: enough?
+- bad_waitpid
 
 ### getpid
 - getpidtest
 - forktest (verify fork returned pid)
-- TODO: enough?
+- forkbomb
 
 ### open
 - sink, conman, palin (console IO)
 - bigseek (open file)
 
 ### dup2
-- TODO: test with close?
+- testdup2
 
 ### close
 - TODO: test with dup2?
@@ -264,9 +346,11 @@ optfile	   shell	syscall/proc_syscalls.c
 
 ### chdir
 - testwdir (changes and reads dir)
+- Command `cd` from kernel
 
 ### _getcwd
 - testwdir (changes and reads dir)
+- Command `pwd` from kernel
 
 ### all
 - badcall (test invalid parameters for all syscalls)
@@ -282,6 +366,16 @@ optfile	   shell	syscall/proc_syscalls.c
 - forkbomb
 - chain of processes (waitpid)
 - kitchen
+
+
+## Conclusions
+[to fill]
+
+
+
+
+
+
 
 
 # TODOs
