@@ -92,13 +92,54 @@ sys_open(userptr_t filename, int flags, int *retval)
 		open_file->offset = file_stat->st_size;
 	}
 
-	// TODO: lock acquired before added to file table? revise locking of fhandles!!!!!
-
 	// add file handle to fdtable
 	curproc->p_fdtable[fd] = open_file;
 
 
 	*retval = fd;
+	return 0;
+}
+
+int
+sys_close(int fd)
+{
+	struct fhandle *open_file;
+
+	DEBUG(DB_SYSCALL,
+		  "Close syscall invoked, fd:%d.\n",
+		  fd);
+
+	if (fd < 0 || fd > OPEN_MAX) {
+		DEBUG(DB_SYSFILE,
+			  "Close error: File descriptor out of bounds. fd: %d.\n",
+			  fd);
+		return EINVAL;
+	}
+
+	// get file handle from file table
+	open_file = curproc->p_fdtable[fd];
+
+	// check that fd points to valid file handle
+	if (open_file == NULL) {
+		DEBUG(DB_SYSFILE,
+			  "Close error: fd points to invalid p_fdtable entry. fd: %d.\n",
+			  fd);
+		return EBADF;
+	}
+
+	// synchronize access to file handle
+	lock_acquire(open_file->lock);
+
+	open_file->ref_count -= 1;
+	if (open_file->ref_count == 0) {
+		DEBUG(DB_SYSFILE, "Closing file handle. fd: %d.\n", fd);
+		curproc->p_fdtable[fd] = NULL;
+		vfs_close(open_file->vn);
+		lock_release(open_file->lock);
+		lock_destroy(open_file->lock);
+		kfree(open_file);
+	}
+
 	return 0;
 }
 
@@ -132,6 +173,9 @@ int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 		return EBADF;
 	}
 
+	// synchronize access to file handle during read
+	lock_acquire(open_file->lock);
+
 	// check that flags allow reading from file
 	if (open_file->flags & O_WRONLY) {
 		DEBUG(DB_SYSFILE,
@@ -140,9 +184,6 @@ int sys_read(int fd, userptr_t buf, size_t size, ssize_t *retval)
 			  fd, open_file->flags);
 		return EBADF;
 	}
-
-	// synchronize access to file handle during read
-	lock_acquire(open_file->lock);
 
 	// init iovec and uio to read from file
 	uio_kinit(&iov, &u, buf, size, open_file->offset, UIO_READ);
@@ -364,46 +405,6 @@ sys___getcwd(userptr_t buf, size_t buflen, int *retval)
 	}
 
 	*retval = 0; // on success return 0
-	return 0;
-}
-
-int sys_close(int fd)
-{
-
-	struct fhandle *open_file;
-	open_file = curproc->p_fdtable[fd];
-
-	if (open_file == NULL)
-	{
-		return EBADF;
-	}
-
-	lock_acquire(open_file->lock);
-	// we make sure that open file is not null
-	// we check if fd is invalid
-	if (fd < 0 || fd > OPEN_MAX)
-	{
-		lock_release(open_file->lock);
-		return EINVAL;
-	}
-
-	if (open_file->ref_count -= 1 > 0)
-	{
-		lock_release(open_file->lock); // we release to not produce deadlock
-		return 0;
-	}; // we decrement by one and return 0
-
-	if (open_file->ref_count == 0)
-	{
-		// maybe create another function with this, with other optfile
-		KASSERT(open_file->vn != NULL); // i interrup the program if file is null
-		vfs_close(open_file->vn);
-		open_file->vn = NULL;
-		lock_release(open_file->lock);
-		lock_destroy(open_file->lock);
-		kfree(open_file); //i dont know if kfree is implemented fully
-	}
-	curproc->p_fdtable[fd] = NULL;
 	return 0;
 }
 

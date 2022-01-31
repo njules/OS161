@@ -59,9 +59,6 @@ int runprogram(char *progname)
 	vaddr_t entrypoint, stackptr;
 	int result;
 
-	// TODO: why output scrambled?
-	kprintf("                                                     \n");
-
 	/* Open the file. */
 	result = vfs_open(progname, O_RDONLY, 0, &v);
 	if (result)
