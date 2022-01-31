@@ -349,7 +349,6 @@ Enable option fork for these tests.
 - factorial
 - farm
 - faulter (no panic on invalid pointer cast) TODO: where?
-- forkbomb
 - chain of processes (waitpid)
 - kitchen
 

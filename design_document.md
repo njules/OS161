@@ -26,8 +26,8 @@ Lastly there are a few special file descriptors, which have a special meaning by
 ## Testing
 Since OS161 has a huge library of user programs we decided to try and keep things as simple as possible by utilizing this library as much as possible. Many of these programs represent very simple programs that could be actually used by an end user. They are thus complex end to end tests that often call several different syscalls and usually only provide valid parameters. In this section we discuss how we choose a subset of this testing library to verify the correctness of our implementation as thoroughly as possible. In addition to the provided programs we implemented a number of small tests ourselves to cover otherwised missed functionality.
 An essential property of any system call is, that the system should never crash. Even if the user provided invalid arguments. The robustness of the system can be verified using `badcall` which tests for edge cases and `randcall` which calls random syscalls with random arguments. Even if some functions are not yet implemented, the kernel should never crash.
-We
-
+The first most basic test we performed was `palin` to show that `write` can properly print to stdout as this is essential for almost every other test. A slightly more complicated test we performed, is the `conman` test, which utilizes both stdin and stdout. Finally `bigseek` was the big test for our file syscalls. This program uses both console I/O as well as file I/O, and the `seek` syscall, covering almost all of the basic file syscalls. `close` and `dup2` were tested together in a simple self-written testcase `testclosedup`, as well as `__getcwd` and `chdir` in `testwdir`, rounding off our testing of the files syscalls.
+To test execv we wrote a simple program `testexecv` which calls `argtest` with a specified set of arguments. `getpid`, `waitpid` and `fork` were finally all tested together by calling forktest. TODO: exit
 
 ## Bugs and TODOs
 
