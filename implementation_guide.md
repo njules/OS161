@@ -326,7 +326,8 @@ Enable option fork for these tests.
 - argtest (can be called to print passed args)
 
 ### exit
-- called after every program
+- true
+- false
 
 ### waitpid
 - forktest (waits for all forked processes to end)
